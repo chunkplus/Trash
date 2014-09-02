@@ -33,10 +33,9 @@
 	3.硬件(SM和内存)结构
 	
 	其中，内存分配模型是pull request，当block分配至SM之后，由硬件对request进行检查、分配。
-
-
-
-
+3.cuda编译
+浅析CUDA编译流程与配置方法 (我们现在需要的是cuda程序的编译结构(例如.cu和cpp文件的综合处理))
+	http://blog.csdn.net/shi06/article/details/5110017
 
 
 
