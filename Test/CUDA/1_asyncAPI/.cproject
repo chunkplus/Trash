@@ -27,7 +27,7 @@
 								<option id="nvcc.compiler.option.level.1424906481" name="Generate host debug information (-g)" superClass="nvcc.compiler.option.level" value="true" valueType="boolean"/>
 								<option defaultValue="nvcc.compiler.optimization.level.none" id="nvcc.compiler.optimization.level.769972636" name="Optimization Level" superClass="nvcc.compiler.optimization.level" valueType="enumerated"/>
 								<option id="nvcc.compiler.pic.578788025" name="Position Independent Code (-fPIC)" superClass="nvcc.compiler.pic"/>
-								<option id="nvcc.compiler.include.paths.68379455" superClass="nvcc.compiler.include.paths" valueType="includePath">
+								<option id="nvcc.compiler.include.paths.68379455" name="Include paths (-I)" superClass="nvcc.compiler.include.paths" valueType="includePath">
 									<listOptionValue builtIn="false" value="/usr/local/cuda/include/inc"/>
 								</option>
 								<inputType id="nvcc.compiler.input.cu.1175287646" superClass="nvcc.compiler.input.cu"/>
@@ -46,15 +46,22 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
+					<folderInfo id="com.nvidia.cuda.ide.configuration.debug.1211681927.563679318" name="/" resourcePath="res">
+						<toolChain id="com.nvidia.cuda.tools.toolchain.exe.debug.809097401" name="CUDA Toolkit 6.0" superClass="com.nvidia.cuda.tools.toolchain.exe.debug" unusedChildren="">
+							<tool id="nvcc.compiler.base.1426506613" name="NVCC Compiler" superClass="nvcc.compiler.base.1514157069"/>
+							<tool id="nvcc.linker.base.1000585293" name="NVCC Linker" superClass="nvcc.linker.base.1490313463"/>
+							<tool id="nvcc.archiver.base.1566337447" name="NVCC Archiver" superClass="nvcc.archiver.base.1574348528"/>
+							<tool id="com.nvidia.host.assembler.731540966" name="Host Assembler" superClass="com.nvidia.host.assembler.223939501"/>
+						</toolChain>
+					</folderInfo>
 				</configuration>
 			</storageModule>
 			<storageModule moduleId="com.nvidia.cuda.ide.build.project.ICudaProjectConfiguration">
 				<executable devicelink="false">
-					<sass major="1" minor="0"/>
 					<sass major="2" minor="1"/>
-					<ptx major="1" minor="0"/>
+					<ptx major="2" minor="0"/>
 				</executable>
-				<editor-arch major="1" minor="0"/>
+				<editor-arch major="2" minor="1"/>
 			</storageModule>
 			<storageModule moduleId="org.eclipse.cdt.core.externalSettings"/>
 		</cconfiguration>

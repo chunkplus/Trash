@@ -14,8 +14,17 @@
 
 今天第一个例程是asyncAPI，网上没有找到解析。
 不过程序readme中给出：This sample uses CUDA streams and events to overlap execution on CPU and GPU.
+// This sample illustrates the usage of CUDA events for both GPU timing and
+// overlapping CPU and GPU execution.  Events are insterted into a stream
+// of CUDA calls.  Since CUDA stream calls are asynchronous, the CPU can
+// perform computations while GPU is executing (including DMA memcopies
+// between the host and device).  CPU can query CUDA events to determine
+// whether GPU has completed tasks.
+
 
 这个程序很小，只有一个.cu文件。作为第一个例程，makefile和程序的结构是重点。
+
+0.makefile
 	$^ 所有的依赖目标的集合。以空格分隔。如果在依赖目标中有多个重复的,那个这个变量会去除重复的依赖目标,只保留一份。
 	$@   表示规则中的目标文件集。在模式规则中,如果有多个目标,那么,"$@"就是匹配于目标中模式定义的集合。
 
@@ -123,6 +132,246 @@
 	在模块B的实现文件中仍然调用foo（2,3），其结果是：（1）模块A编译生成foo的目标代码时，没有对其名字进行特殊处理，采用了C语言的方式；（2）连接器在为模块B的目标代码寻找foo(2,3)调用时，寻找的是未经修改的符号名_foo。
 
 	3.extern "C"通常的使用技巧
+
+(7) 关于架构选项
+	http://docs.nvidia.com/cuda/maxwell-compatibility-guide/#verifying-maxwell-compatibility-using-cuda-6-0
+
+	Note that compute_XX refers to a PTX version and sm_XX refers to a cubin version. The arch= clause of the -gencode= command-line option to nvcc specifies the front-end compilation target and must always be a PTX version. The code= clause specifies the back-end compilation target and can either be cubin or PTX or both. Only the back-end target version(s) specified by the code= clause will be retained in the resulting binary; at least one should be PTX to provide compatibility with future architectures.
+
+	The NVIDIA CUDA C compiler, nvcc, can be used to generate both architecture-specific cubin files and forward-compatible PTX versions of each kernel. Each cubin file targets a specific compute-capability version and is forward-compatible only with GPU architectures of the same major version number. For example, cubin files that target compute capability 3.0 are supported on all compute-capability 3.x (Kepler) devices but are not supported on compute-capability 5.0 (Maxwell) devices. For this reason, to ensure forward compatibility with GPU architectures introduced after the application has been released, it is recommended that all applications include PTX versions of their kernels.
+
+	When a CUDA application launches a kernel, the CUDA Runtime determines the compute capability of each GPU in the system and uses this information to automatically find the best matching cubin or PTX version of the kernel that is available. If a cubin file supporting the architecture of the target GPU is available, it is used; otherwise, the CUDA Runtime will load the PTX and JIT-compile that PTX to the GPU's native cubin format before launching it. If neither is available, then the kernel launch will fail.
+
+
+
+	注意：检测到capabilitie = 2.1 情况下，在eclispe中无论自己指定gencode如何，最终它都会自动添加-gencode arch=compute_20,code=sm_21选项。即，对于capabilitie = 2.1，今后我们编译时只需要指定-gencode arch=compute_20,code=sm_21 .
+	如果只指定gpu不指定ptx，则 同样会有-gencode arch=compute_20,code=sm_21
+	但是不能都不指定，否则会 -gencode arch=compute_10,code=sm_10
+	
+
+4.代码分析
+	0.kernel <<<>>>
+	核函数只能在主机端调用，调用时必须申明执行参数。调用形式如下：
+		Kernel<<<Dg,Db, Ns, S>>>(param list);
+			<<<>>>运算符对kernel函数完整的执行配置参数形式是<<<Dg, Db, Ns, S>>>
+
+			Dg：用于定义整个grid的维度和尺寸，即一个grid有多少个block。为dim3类型。Dim3 Dg(Dg.x, Dg.y, 1)表示grid中每行有Dg.x个block，每列有Dg.y个block，第三维恒为1(目前一个核函数只有一个grid)。整个grid中共有Dg.x*Dg.y个block，其中Dg.x和Dg.y最大值为65535。
+			
+			Db：用于定义一个block的维度和尺寸，即一个block有多少个thread。为dim3类型。Dim3 Db(Db.x, Db.y, Db.z)表示整个block中每行有Db.x个thread，每列有Db.y个thread，高度为Db.z。Db.x和Db.y最大值为512，Db.z最大值为62。 一个block中共有Db.x*Db.y*Db.z个thread。计算能力为1.0,1.1的硬件该乘积的最大值为768，计算能力为1.2,1.3的硬件支持的最大值为1024。
+			
+			Ns：是一个可选参数，用于设置每个block除了静态分配的shared Memory以外，最多能动态分配的shared memory大小，单位为byte。不需要动态分配时该值为0或省略不写。
+			
+			S：是一个cudaStream_t类型的可选参数，初始值为零，表示该核函数处在哪个流之中。
+
+
+	1. cudaError_t CUDARTAPI cudaMallocHost(void **ptr, size_t size);
+	关于使用了cudaMallocHost之后发生 segment fault的原因
+	由于cudaMallocHost或者其完全版本 cudaHostAlloc，他们都是在host side申请空间，所以所得到的指针都是属于主机端的，但是这个与使用标准库函数malloc／alloc等略有不同，因为使用cuda＊申请的空间的指针是由cuda来维护的，一般的，这里发生segment fault，一般都是由于相应指针定义失效，以至于相应的引用指向无效位置，而这种使之失活的操作（在我今天的错误当中）就是 cudaDeviceReset(void)；在cudaDeviceReset(void)之后出现的对于之前cudaMallocHost的指针，如果再引用，会导致无效引用，错误产生；
+
+	2.struct __device_builtin__ cudaDeviceProp
+
+	3.cudaGetDeviceProperties(&deviceProps, devID)
+
+	4.定义于inc/helper_cuda.h:
+		#define checkCudaErrors(val)           check ( (val), #val, __FILE__, __LINE__ )
+
+	5.cudaEvent_t ： 事件
+		cudaEvent_t start,stop;
+		cudaEventCreate(&start);
+		cudaEventCreate(&stop);
+		cudaEventRecord(start,0);
+		
+		其中，cudaEventRecord是产生事件并记录（用于记录当前场景）
+
+		使用事件来测量性能
+        1. 用途：为了测量GPU在某个任务上花费的时间。CUDA中的事件本质上是一个GPU时间戳。由于事件是直接在GPU上实现的。因此不适用于对同时包含设备代码和主机代码的混合代码设计。
+        2. 形式：首先创建一个事件，然后记录事件，再计算两个事件之差，最后销毁事件。如：		
+			cudaEvent_t start, stop;
+			cudaEventCreate( &start );
+			cudaEventCreate( &stop );
+			cudaEventRecord( start, 0 );
+			//do something
+			cudaEventRecord( stop, 0 );
+			float   elapsedTime;
+			cudaEventElapsedTime( &elapsedTime,start, stop );
+			cudaEventDestroy( start );
+			cudaEventDestroy( stop )；
+
+	6.关于cutil.h 
+	http://stackoverflow.com/questions/12474191/cuda5-examples-has-anyone-translated-some-cutil-definitions-to-cuda5
+		被helper_*.h代替，如
+		helper_cuda.h, helper_cuda_gl.h, helper_cuda_drvapi.h, helper_functions.h, helper_image.h, helper_math.h, helper_string.h, and helper_timer.h
+		函数cutil* / cut* 被 sdk*取代。
+		如 cutCreateTimer(&timer); 替换成 sdkCreateTimer(&timer); 
+
+
+	7.cudaMemcpyAsync ： cuda流
+	http://www.tuicool.com/articles/fY7ryi
+		CUDA流表示一个GPU操作队列，并且该队列中的操作以添加到队列的先后顺序执行。使用CUDA流可以实现任务级的并行，比如当GPU在执行核函数的同时，还可以在主机和设备之间交换数据(前提是GPU支持重叠，property的deviceOverlay为true)。
+		cudaMemcpyAsync只是放置一个请求，表示在流中执行一次内存复制操作。函数返回时，复制操作不一定启动或执行结束，只是该操作被放入执行队列，在下一个被放入流中的操作之前执行。
+		cuda流的使用能提高程序的执行效率。原理主要是使数据复制操作和核函数执行操作交叉执行，不用等到第一次核函数执行结束再开始第二轮的数据复制，以减少顺序执行带来的延迟(类似于编译中使用流水线在解决冲突的前提下提高效率)。
+		(为此我们可能需要有多个流，如streamTest.cu，其中有两行：
+			kernel<<<N/256, 256, 0, stream0>>>(dev_a0, dev_b0, dev_c0);
+			kernel<<<N/256, 256, 0, stream1>>>(dev_a1, dev_b1, dev_c1);
+		)
+		
+
+5.users' word
+	http://bookc.github.io/
+	CUDA流表示一个GPU操作队列，并且该队列中的操作将以指定的顺序执行。我们可以在流中添加一些操作，如
+	
+		核函数启动，内存复制 以及 事件的启动和结束
+		
+	等。这些操作的添加到流的顺序也是它们的执行顺序。可以将每个流视为GPU上的一个任务，并且这些任务可以并行执行。
+
+	流同步：通过cudaStreamSynchronize()来协调。
+
+
+7.其他
+	1.关于cudaMallocHost and cudaHostAlloc
+	The difference between the two if you're compiling with nvcc: nothing. The only difference is if you're using the runtime API from a C program rather than a C++ program (nvcc always compiles as C++), and then cudaHostAlloc is how you specify flags for your allocation.
+
+	2.关于syncronize （barrier）
+		cudaStreamSynchronize vs CudaDeviceSynchronize vs cudaThreadSynchronize
+		These are all barriers. Barriers prevent code execution beyond the barrier until some condition is met.
+
+		cudaDeviceSynchronize() halts execution in the CPU/host thread (that the cudaDeviceSynchronize was issued in) until the GPU has finished processing all previously requested cuda tasks (kernels, data copies, etc.)
+		
+		cudaThreadSynchronize() as you've discovered, is just a deprecated version of cudaDeviceSynchronize. Deprecated just means that it still works for now, but it's recommended not to use it (use cudaDeviceSynchronize instead) and in the future, it may become unsupported. But cudaThreadSynchronize() and cudaDeviceSynchronize() are basically identical.
+		
+		cudaStreamSynchronize() is similar to the above two functions, but it prevents further execution in the CPU host thread until the GPU has finished processing all previously requested cuda tasks that were issued in the referenced stream. So cudaStreamSynchronize() takes a stream id as it's only parameter. cuda tasks issued in other streams may or may not be complete when CPU code execution continues beyond this barrier.
+
+
+	3.计时
+		
+		/**
+		 * timer utils
+		 */
+		#include <sys/time.h>
+		static struct timeval _tstart, _tend;
+		static struct timezone tz;
+		void tstart(void) {
+			gettimeofday(&_tstart, &tz);
+		}
+		void tend(void) {
+			gettimeofday(&_tend, &tz);
+		}
+		double tval() {
+			double t1, t2;
+			t1 = (double) _tstart.tv_sec + (double) _tstart.tv_usec / (1000 * 1000);
+			t2 = (double) _tend.tv_sec + (double) _tend.tv_usec / (1000 * 1000);
+			return t2 - t1;
+		}
+
+		或者：
+		#include <sys/time.h>
+		class mTimer {
+			struct timeval _tstart, _tend;
+			struct timezone tz;
+		public:
+			void start() {
+				gettimeofday(&_tstart, &tz);
+			}
+			void end() {
+				gettimeofday(&_tend, &tz);
+			}
+			double getTime() {
+				double t1, t2;
+				t1 = (double) _tstart.tv_sec + (double) _tstart.tv_usec / (1000 * 1000);
+				t2 = (double) _tend.tv_sec + (double) _tend.tv_usec / (1000 * 1000);
+				return t2 - t1;
+			}
+			void showTime() {
+				printf("time in seconds:\t%.12f s\n", getTime());
+			}
+		};
+
+		或者：
+		
+		class cuTimer {
+			StopWatchInterface *timer;
+		public:
+			cuTimer() {
+				sdkCreateTimer(&timer);
+			}
+			~cuTimer() {
+				sdkDeleteTimer(&timer);
+			}
+			void start() {
+				sdkStartTimer(&timer);
+			}
+			void end() {
+				sdkStopTimer(&timer);
+			}
+			double getTime() {
+				return sdkGetTimerValue(&timer);
+			}
+			//Time in msec
+			void showTime() {
+				printf("time in msec:\t%.12f ms\n", getTime());
+			}
+		};
+
+
+	4.关于生命周期！注意！
+	除非显式cudaFree或者GPU重启，否则即使程序结束或者cudaDeviceReset也不能将显存中的数据清除。
+	
+	cudaDeviceReset : Explicitly destroys and cleans up all resources associated with the current device in the current process. Any subsequent API call to this device will reinitialize the device.
+	Note that this function will reset the device immediately. It is the caller's responsibility to ensure that the device is not being accessed by any other host threads from the process when this function is called.
+	
+		其他方法：
+		1.nvidia-smi -i 0 -r
+			Resetting GPU is not supported on this device.
+			Treating as warning and moving on.
+			All done.
+		
+	5.TMD!随机数也有问题！尤其是在eclipse中，如果不设置srand，随机序列时不回变化的！
+		惊出一身冷汗，这让我想到了我的密码学作业。。。
+
+8.关于并发(concurrent)与并行(parallel)
+	http://www.doc88.com/p-944523615763.html
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
