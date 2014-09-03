@@ -1,155 +1,61 @@
 /*
- * Copyright 1993-2014 NVIDIA Corporation.  All rights reserved.
+ * clock.cu
  *
- * Please refer to the NVIDIA end user license agreement (EULA) associated
- * with this source code for terms and conditions that govern your use of
- * this software. Any use, reproduction, disclosure, or distribution of
- * this software and related documentation outside the terms of the EULA
- * is strictly prohibited.
- *
+ *  Created on: Sep 3, 2014
+ *      Author: chunk
  */
 
-// This example shows how to use the clock function to measure the performance of
-// a kernel accurately.
-//
-// Blocks are executed in parallel and out of order. Since there's no synchronization
-// mechanism between blocks, we measure the clock once for each block. The clock
-// samples are written to device memory.
-
-// System includes
 #include <stdio.h>
+#include <stdlib.h>
 #include <assert.h>
 
-// CUDA runtime
 #include <cuda_runtime.h>
-
-// helper functions and utilities to work with CUDA
-#include <helper_functions.h>
 #include <helper_cuda.h>
+#include <helper_functions.h>
 
-// This kernel computes a standard parallel reduction and evaluates the
-// time it takes to do that for each block. The timing results are stored
-// in device memory.
-__global__ static void timedReduction(const float *input, float *output, clock_t *timer)
-{
-    // __shared__ float shared[2 * blockDim.x];
-    extern __shared__ float shared[];
+#define NUM_BLOCKS 64
+#define NUM_THREADS 256
+#define mmin(a,b) ((a)<(b) ? (a) : (b))
 
-    const int tid = threadIdx.x;
-    const int bid = blockIdx.x;
+__global__ void timeReduction(int *A, clock_t* timer) {
+	extern __shared__ int shared[];
+	int tid = threadIdx.x;
+	int bid = blockIdx.x;
+	if (tid == 0)
+		timer[bid] = clock();
+	shared[tid] = A[tid];
+	shared[tid + blockDim.x] = A[tid + blockDim.x];
 
-    if (tid == 0) timer[bid] = clock();
-
-    // Copy input.
-    shared[tid] = input[tid];
-    shared[tid + blockDim.x] = input[tid + blockDim.x];
-
-    // Perform reduction to find minimum.
-    for (int d = blockDim.x; d > 0; d /= 2)
-    {
-        __syncthreads();
-
-        if (tid < d)
-        {
-            float f0 = shared[tid];
-            float f1 = shared[tid + d];
-
-            if (f1 < f0)
-            {
-                shared[tid] = f1;
-            }
-        }
-    }
-
-    // Write result.
-    if (tid == 0) output[bid] = shared[0];
-
-    __syncthreads();
-
-    if (tid == 0) timer[bid+gridDim.x] = clock();
+	for (unsigned int d = blockDim.x * 2; d > 0; d >> 1) {
+		__syncthreads();
+		if (tid < d)
+			shared[tid] = mmin(shared[tid],shared[tid + d]);
+	}
+	__syncthreads();
+	if (tid == 0)
+		timer[bid + blockDim.x] = clock();
 }
 
+int main(int argc, char **argv) {
+	int devID = findCudaDevice(argc, (const char**) argv);
+	assert(devID >= 0);
 
-// This example shows how to use the clock function to measure the performance of
-// a kernel accurately.
-//
-// Blocks are executed in parallel and out of order. Since there's no synchronization
-// mechanism between blocks, we measure the clock once for each block. The clock
-// samples are written to device memory.
+	int n = NUM_THREADS * 2;
+	int nbyte = n * sizeof(int);
 
-#define NUM_BLOCKS    64
-#define NUM_THREADS   256
+	int *h_A, *d_A;
+	clock_t *h_timer, *d_timer;
 
-// It's interesting to change the number of blocks and the number of threads to
-// understand how to keep the hardware busy.
-//
-// Here are some numbers I get on my G80:
-//    blocks - clocks
-//    1 - 3096
-//    8 - 3232
-//    16 - 3364
-//    32 - 4615
-//    64 - 9981
-//
-// With less than 16 blocks some of the multiprocessors of the device are idle. With
-// more than 16 you are using all the multiprocessors, but there's only one block per
-// multiprocessor and that doesn't allow you to hide the latency of the memory. With
-// more than 32 the speed scales linearly.
-
-// Start the main CUDA Sample here
-int main(int argc, char **argv)
-{
-    printf("CUDA Clock sample\n");
-
-    // This will pick the best possible CUDA capable device
-    int dev = findCudaDevice(argc, (const char **)argv);
-
-    float *dinput = NULL;
-    float *doutput = NULL;
-    clock_t *dtimer = NULL;
-
-    clock_t timer[NUM_BLOCKS * 2];
-    float input[NUM_THREADS * 2];
-
-    for (int i = 0; i < NUM_THREADS * 2; i++)
-    {
-        input[i] = (float)i;
-    }
-
-    checkCudaErrors(cudaMalloc((void **)&dinput, sizeof(float) * NUM_THREADS * 2));
-    checkCudaErrors(cudaMalloc((void **)&doutput, sizeof(float) * NUM_BLOCKS));
-    checkCudaErrors(cudaMalloc((void **)&dtimer, sizeof(clock_t) * NUM_BLOCKS * 2));
-
-    checkCudaErrors(cudaMemcpy(dinput, input, sizeof(float) * NUM_THREADS * 2, cudaMemcpyHostToDevice));
-
-    timedReduction<<<NUM_BLOCKS, NUM_THREADS, sizeof(float) * 2 *NUM_THREADS>>>(dinput, doutput, dtimer);
-
-    checkCudaErrors(cudaMemcpy(timer, dtimer, sizeof(clock_t) * NUM_BLOCKS * 2, cudaMemcpyDeviceToHost));
-
-    checkCudaErrors(cudaFree(dinput));
-    checkCudaErrors(cudaFree(doutput));
-    checkCudaErrors(cudaFree(dtimer));
-
-
-    // Compute the difference between the last block end and the first block start.
-    clock_t minStart = timer[0];
-    clock_t maxEnd = timer[NUM_BLOCKS];
-
-    for (int i = 1; i < NUM_BLOCKS; i++)
-    {
-        minStart = timer[i] < minStart ? timer[i] : minStart;
-        maxEnd = timer[NUM_BLOCKS+i] > maxEnd ? timer[NUM_BLOCKS+i] : maxEnd;
-    }
-
-    printf("Total clocks = %d\n", (int)(maxEnd - minStart));
-
-
-    // cudaDeviceReset causes the driver to clean up all state. While
-    // not mandatory in normal operation, it is good practice.  It is also
-    // needed to ensure correct operation when the application is being
-    // profiled. Calling cudaDeviceReset causes all profile data to be
-    // flushed before the application exits
-    cudaDeviceReset();
-
-    return EXIT_SUCCESS;
+	cudaMallocHost(&h_A, nbyte);
+	cudaMallocHost(&h_timer, NUM_BLOCKS * 2 * sizeof(clock_t));
+	cudaMalloc(&d_A, nbyte);
+	cudaMalloc(&d_timer, NUM_BLOCKS * 2 * sizeof(clock_t));
+	srand(time(0));
+	for (int i = 0; i < n; i++) {
+		h_A[i] = (int) (NUM_THREADS * rand() / (RAND_MAX + 1.0));
+	}
+	cudaMemset((void *) d_timer, 0, NUM_BLOCKS * 2 * sizeof(clock_t));
+	cudaMemcpy(d_A, h_A, nbyte, cudaMemcpyHostToDevice);
+	timeReduction<<<NUM_BLOCKS, NUM_THREADS, nbyte>>>(d_A, d_timer);
 }
+

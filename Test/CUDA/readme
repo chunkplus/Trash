@@ -332,12 +332,238 @@
 	http://www.doc88.com/p-944523615763.html
 
 
-
+注意：未解决问题 - reset
 
 
 //0903
 
-今天第一个例程是asyncAPI，网上没有找到解析。
+今天第二个例程是clock，因为CDP(cuda dynamic parallism)要求capabilitie 在3.5以上。
+
+2_clock的目的是通过device端的timer计算精确的（不包括IO）的时钟时间，然后将这个时间传回host读取。
+本程序涉及几个重要的话题。
+
+1.__shared__
+	http://stackoverflow.com/questions/5531247/allocating-shared-memory
+	
+	(1)
+	__shared__ int a[count]; //error
+	
+	“const doesn't mean "constant", it means "read-only".”
+	A constant expression is something whose value is known to the compiler at compile-time.
+	(2)
+	__shared__ int a[100];
+    __shared__ int b[4];	//ok
+	
+	or
+	
+	extern __shared__ int *shared;
+    int *a = &shared[0]; //a is manually set at the beginning of shared
+    int *b = &shared[count_a]; //b is manually set at the end of a
+
+	(3)
+	extern __shared__ int a[]; //ok
+	...
+	Kernel<<< gridDim, blockDim, a_size >>>(count);
+	
+	CUDA supports dynamic shared memory allocation. If you declare the kernel like that。
+	
+	也就是说，cuda的动态分配是在kernel参数中体现的，Ds指定了多少，最终就一定会分配这么多，并且顺序供给，用不完也在那。
+	
+2.至于为什么动态分配时是extern，解释如下：
+	(1)本意：生命某个全局变量存在于某个源文件的某处，让编译器放心
+	http://stackoverflow.com/questions/10422034/when-to-use-extern-in-c
+	extern在c语言中的本意：This comes in useful when you have global variables. You declare the existence of global variables in a header, so that each source file that includes the header knows about it, but you only need to “define” it once in one of your source files.
+	
+	To clarify, using extern int x; tells the compiler that an object of type int called x exists somewhere. It's not the compilers job to know where it exists, it just needs to know the type and name so it knows how to use it. 
+
+	(2) 关于 extern "C"
+	http://stackoverflow.com/questions/1041866/in-c-source-what-is-the-effect-of-extern-c
+	Since C++ has overloading of function names and C does not, the C++ compiler cannot just use the function name as a unique id to link to, so it mangles the name by adding information about the arguments. A C compiler does not need to mangle the name since you can not overload function names in C. When you state that a function has extern "C" linkage in C++, the C++ compiler does not add argument/parameter type information to the name used for linkage.
+	这里的目的不是欺骗编译器，而是指导编译器在编译过程中对这个保护区进行特殊处理。
+	一种跨c/c++的编码方式：
+		#ifdef __cplusplus
+		extern "C" {
+		#endif
+
+		// all of your legacy C code here
+
+		#ifdef __cplusplus
+		}
+		#endif
+
+	同时需要注意：we should also mention that this means that if you have two kernels with shared memory, you should use different identifiers for the shared memory pointer. it's not completely necessary but can help avoid some errors.nvcc wouldn't compile when i had extern __shared__ int *shared in one kernel and extern __shared__ float *shared in another kernel 
+
+3.同步函数__syncthreads()
+	__syncthreads()是 CUDA 的内置命令，其作用是保证 block 内的所有线程都已经运行到调用__syncthreads()的位置，这样可以保证各个线程看到的存储器是一样的。其头文件为 device_functions.h
+	
+	http://www.cnblogs.com/dwdxdy/p/3215136.html
+	一句话：块内线程同步
+	
+	
+	
+4.规约法
+
+	参考官方文档 - 关于cuda规约优化 http://developer.download.nvidia.com/assets/cuda/files/reduction.pdf
+		by Mark Harris (http://www.markmark.net/ , http://stackoverflow.com/users/749748/harrism)
+
+	部分翻译 ： http://hackecho.com/2013/04/cuda-parallel-reduction/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
