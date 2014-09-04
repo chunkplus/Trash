@@ -390,8 +390,31 @@
 		#ifdef __cplusplus
 		}
 		#endif
-
+	
+	(2) extern与头文件(*.h)的区别和联系
+	http://lpy999.blog.163.com/blog/static/117372061201182051413310/
+	http://blog.csdn.net/yuyantai1234/article/details/7245412
+	
+	首先说下头文件，其实头文件对计算机而言没什么作用，她只是在预编译时在#include的地方展开一下，没别的意义了，其实头文件主要是给别人看的。
+	
+	那既然是说明，那么头文件里面放的自然就是关于函数，变量，类的“声明”(对函数来说，也叫函数原型)了。记着，是“声明”，不是“定义”。那么，我假设大家知道声明和定义的区别。所以，最好不要傻嘻嘻的在头文件里定义什么东西。比如全局变量.
+	
+	这个关键字真的比较可恶，在定义变量的时候，这个extern居然可以被省略(定义时，默认均省略)；在声明变量的时候，这个extern必须添加在变量前，所以有时会让你搞不清楚到底是声明还是定义。或者说，变量前有extern不一定就是声明，而变量前无extern就只能是定义。注：定义要为变量分配内存空间；而声明不需要为变量分配内存空间。
+	
+	  函数，对于函数也一样，也是定义和声明，定义的时候用extern，说明这个函数是可以被外部引用的，声明的时候用extern说明这是一个声明。 但由于函数的定义和声明是有区别的，定义函数要有函数体，声明函数没有函数体(还有以分号结尾)，所以函数定义和声明时都可以将extern省略掉，反正其他文件也是知道这个函数是在其他地方定义的，所以不加extern也行。
+	  
+	/***
+	 * 注意：通过上述可知，对于函数来说，关键字'extern'可有可无；对于变量来说，声明时必须有extern。
+	 * 为统一起见，我们将全局函数和变量的声明都加上extern。
+	 * 注意，对于变量来说，如果需要声明的时候同时定义（在同一source文件中），则直接定义，不加extern，这与我们原先的习惯不矛盾。
+	 */
+	
+	发现了没有？从此可以省略.h文件了！extern可以看成精简版的胶水。
+	
+	
+	
 	同时需要注意：we should also mention that this means that if you have two kernels with shared memory, you should use different identifiers for the shared memory pointer. it's not completely necessary but can help avoid some errors.nvcc wouldn't compile when i had extern __shared__ int *shared in one kernel and extern __shared__ float *shared in another kernel 
+	
 
 3.同步函数__syncthreads()
 	__syncthreads()是 CUDA 的内置命令，其作用是保证 block 内的所有线程都已经运行到调用__syncthreads()的位置，这样可以保证各个线程看到的存储器是一样的。其头文件为 device_functions.h
@@ -432,10 +455,192 @@
 	
 	3.bug eye for this code.
 	timer[bid + blockDim.x] = clock();	// HERE : bug eye!
+
+6.还有个重要的问题未解决：测试最佳blocksize
+
+
 	
 事先一定要把结构图画清楚！！
 
 //0904
+
+今天第三个例程是cppIntegration，这也是阴影之一，力图破之。
+
+readme很清楚: This example demonstrates how to integrate CUDA into an existing C++ application, i.e. the CUDA entry point on host side is only a function which is called from C++ code and only the file containing this function is compiled with nvcc. It also demonstrates that vector types can be used from cpp.
+
+1.extern
+	这个问题之前已经讨论过了。
+2.关于bank conflicts
+	// use integer arithmetic to process all four bytes with one thread
+	// this serializes the execution, but is the simplest solutions to avoid
+	// bank conflicts for this very low number of threads
+	// in general it is more efficient to process each byte by a separate thread,
+	// to avoid bank conflicts the access pattern should be
+	// g_data[4 * wtid + wid], where wtid is the thread id within the half warp
+	// and wid is the warp id
+	// see also the programming guide for a more in depth discussion.
+	看完 https://www.youtube.com/watch?v=CZgM3DEBplE 
+	就明白了。
+	首先，访存是按对齐的字的方式，因此以int方式会大大提高效率
+	
+	https://www.youtube.com/watch?v=CZgM3DEBplE  中同时给出了测试bank conflict的程序，过会儿可以试一下。
+	
+3.用int代char的方式
+	这样进行批量处理有哪些优势和劣势？
+
+
+//0904
+
+今天第四个例程是
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
