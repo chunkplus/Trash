@@ -408,8 +408,34 @@
 
 	部分翻译 ： http://hackecho.com/2013/04/cuda-parallel-reduction/
 
+5.其他
+	1.rand()
+	h_A[i] = (int) ((float) NUM_THREADS * rand() / (RAND_MAX + 1.0));
+	其中(float) 不能落下，否则全零。
+	
+	2.checkCudaErrors
+	checkCudaErrors还是很有用的，比如用printf调试了半天无果，加上checkCudaErrors一检验，立马报错：CUDA error at ../src/clock.cu:76 code=77(<unknown>) "cudaMemcpy(h_timer, d_timer, NUM_BLOCKS * 2 * sizeof(clock_t), cudaMemcpyDeviceToHost)" 
 
+	关于错误检查！！！！！坑爹！
+	http://stackoverflow.com/questions/19172408/acudaerrorunknown-in-cudamemcpy-function-call
+	The documentation for both cudaMemcpy and cudaFree contains the following note:
 
+	Note that this function may also return error codes from previous, asynchronous launches.
+
+	ie. the error isn't happening in either cudaMemcpy or cudaFree, rather it is happening during the previous kernel launch or execution. If you follow this advice and modify your code to something like this:
+
+		vectorMPL<<<blocksPerGrid, threadsPerBlock>>>(d_A, d_B, d_D, numElements);
+		checkCudaErrors(cudaPeekAtLastError());
+		checkCudaErrors(cudaDeviceSynchronize());
+		
+	You should find that the error is reported by the cudaDeviceSynchronize() call, indicating that the error occurred when kernel was executing. The underlying reason for the error will most likely be out of bounds memory access ... ...
+	
+	3.bug eye for this code.
+	timer[bid + blockDim.x] = clock();	// HERE : bug eye!
+	
+事先一定要把结构图画清楚！！
+
+//0904
 
 
 
