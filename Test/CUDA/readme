@@ -491,17 +491,30 @@ readme很清楚: This example demonstrates how to integrate CUDA into an existin
 
 //0904
 
-今天第四个例程是
+今天第四个例程是cppOverload. readme中解释 ： This sample demonstrates how to use C++ function overloading on the GPU.
+
+1.除法向上取整固定套路：
+	#define DIV_UP(a, b) (((a) + (b) - 1) / (b))
+	用在计算blocksize（即griddim）时 ： <<<DIV_UP(N, THREAD_N), THREAD_N>>>
+2.再次讨论cudaDeviceReset
+	// cudaDeviceReset causes the driver to clean up all state. While
+	// not mandatory in normal operation, it is good practice.  It is also
+	// needed to ensure correct operation when the application is being
+	// profiled. Calling cudaDeviceReset causes all profile data to be
+	// flushed before the application exits
+
+3.shared_mem 和 L1_cache的分配
+	cudaFuncSetCacheConfig(*func2, cudaFuncCachePreferShared)；
 
 
+//0905
 
+从今天开始，我们要简略的过几个0_sample中的samples，需要加快些脚步。。。
 
-
-
-
-
-
-
+/**
+ * cudaOpenMP
+ */
+	This sample demonstrates how to use OpenMP API to write an application for multiple GPUs.  This executable is not pre-built with the SDK installer.
 
 
 
