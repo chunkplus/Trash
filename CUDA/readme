@@ -541,36 +541,57 @@ OPENCV - GPU Module Introduction
 	
 	Along with OpenCL code refactoring and Transparent API implementation OpenCL kernels were optimized for mainstream platforms, most notably for modern Intel chips (including Iris and Iris Pro) and AMD chips (such as Kaveri). More detailed results are to be provided later.
 
+/**
+ * 
+ * 怂了。。。本着小码怡情的方针，我们还是继续研究基础代码吧。
+ * 
+ * inlinePTX
+ * 
+ */ 
+A simple test application that demonstrates a new CUDA 4.0 ability to embed PTX in a CUDA kernel.
+
+1.嵌入PTX代码
+	asm("mov.u32 %0, %%laneid;" : "=r"(laneid));
+	//This command gets the lane ID within the current warp
+
+	参考官方文档 - http://docs.nvidia.com/cuda/parallel-thread-execution/index.html#axzz3Cd8Fah6X
+	
+	PTX, a low-level parallel thread execution virtual machine and instruction set architecture (ISA).
+
+	A key difference is that SIMD vector organizations expose the SIMD width to the software, whereas SIMT instructions specify the execution and branching behavior of a single thread.
+
+	SIMT enables programmers to write thread-level parallel code for independent, scalar threads, as well as data-parallel code for coordinated threads. For the purposes of correctness, the programmer can essentially ignore the SIMT behavior; however, substantial performance improvements can be realized by taking care that the code seldom requires threads in a warp to diverge. In practice, this is analogous to the role of cache lines in traditional code: Cache line size can be safely ignored when designing for correctness but must be considered in the code structure when designing for peak performance. Vector architectures, on the other hand, require the software to coalesce loads into vectors and manage divergence manually.
+
+CUDA Pro Tip: View Assembly Code Correlation in Nsight Visual Studio Edition
+	http://devblogs.nvidia.com/parallelforall/cuda-pro-tip-view-assembly-code-correlation-nsight-visual-studio-edition/
+	As Mark Harris explained in the previous CUDA Pro Tip, there are two compilation stages required before a kernel written in CUDA C can be executed on the GPU. The first stage compiles the high-level C code into the PTX virtual GPU ISA. The second stage compiles PTX into the actual ISA of the hardware, called SASS (details of SASS can be found in the cuobjdump.pdf installed in the doc folder of the CUDA Toolkit). 
+
+	The hardware ISA is in general different between GPU architectures. To allow forward compatibility, the second compilation phase can be either done as part of the normal compilation using nvcc or at runtime using the integrated JIT compiler in the driver.
+
+2.今天一个重要的话题是 cuda的调试
+Remote application development using NVIDIA® Nsight™ Eclipse Edition（关于cuda调试和profile的）
+	http://devblogs.nvidia.com/parallelforall/remote-application-development-nvidia-nsight-eclipse-edition/
+
+	Profiling Your Remote Application
+
+	We need to create a release build before we launch the profiler. You can enable the -lineinfo option in the compile options to generate information on source-to-SASS instruction correlation. To do this, first go to the project settings by right-clicking on the project in the left pane. Then navigate to Properties->Build->Settings->Tool Settings->Debugging and check the box that says “Generate line-number…” and click Apply. 
+
+	Back in the main window, click on the build hammer drop-down menu to create a release build. Once the build is ready, profile your remote application by clicking on the “Profile” icon on the right of the Run icon. In the drop-down menu select “Profile AS->Remote C/C++ Application”, Nsight will prompt you to select the binaries; choose the release binary so it runs on the target system.
+
+	Let’s select the collideD kernel and then click on the “unguided analysis” icon under the “Analysis” tab. Then scroll down to click on “Kernel Profile”, which will analyze the source code of the collideD kernel and map it to the executed instructions. Once the analysis finishes, the pane on the right shows the kernel name. Double click on collideD and Nsight will bring up the source-to-SASS assembly instructions view which shows all the hot spots at instruction level. The kernel profile, shown in , as shown in Figure 8, provides the execution count, inactive threads, and predicated threads for each source and assembly line of the kernel. Using this information you can pinpoint portions of your kernel that inefficiently use compute resources due to divergence or predication.
 
 
+	http://docs.nvidia.com/cuda/profiler-users-guide/#axzz3Cd8Fah6X
+	
+	太牛逼了！
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+/**
+ * 
+ * 
+ * inlinePTX
+ * 
+ */ 
 
 
 
