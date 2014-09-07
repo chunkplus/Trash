@@ -31,13 +31,14 @@
 									<listOptionValue builtIn="false" value="/usr/local/cuda/include/inc"/>
 								</option>
 								<option id="nvcc.compiler.optionsfile.1916422505" name="Command line options file (-optf)" superClass="nvcc.compiler.optionsfile" value="" valueType="string"/>
+								<option id="nvcc.compiler.option.lineinfo.1688306474" name="Generate line-number information for device code (-lineinfo)" superClass="nvcc.compiler.option.lineinfo" value="true" valueType="boolean"/>
 								<inputType id="nvcc.compiler.input.cu.657725795" superClass="nvcc.compiler.input.cu"/>
 								<inputType id="nvcc.compiler.input.cpp.1992970999" superClass="nvcc.compiler.input.cpp"/>
 								<inputType id="nvcc.compiler.input.c.145593028" superClass="nvcc.compiler.input.c"/>
 							</tool>
 							<tool id="nvcc.linker.base.1126465852" name="NVCC Linker" superClass="nvcc.linker.base">
 								<option id="com.nvidia.cuda.ide.build.linker.ccbin.1380317314" name="Compiler Path (-ccbin)" superClass="com.nvidia.cuda.ide.build.linker.ccbin" value="" valueType="string"/>
-								<option id="nvcc.linker.option.other.1098763929" name="Other options (-Xlinker [option])" superClass="nvcc.linker.option.other" valueType="stringList"/>
+								<option id="nvcc.linker.option.other.1098763929" name="Other options (-Xlinker [option])" superClass="nvcc.linker.option.other"/>
 								<option id="nvcc.linker.option.shared.1918241483" name="Shared (-shared)" superClass="nvcc.linker.option.shared" value="false" valueType="boolean"/>
 								<option id="nvcc.linker.option.libs.1883849724" name="Libraries (-l)" superClass="nvcc.linker.option.libs" valueType="libs">
 									<listOptionValue builtIn="false" value="gomp"/>
@@ -133,4 +134,5 @@
 		</scannerConfigBuildInfo>
 	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
+	<storageModule moduleId="refreshScope"/>
 </cproject>
