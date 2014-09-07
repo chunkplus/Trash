@@ -588,18 +588,27 @@ Remote application development using NVIDIA® Nsight™ Eclipse Edition（关于
 
 /**
  * 
+ * matrixMul
  * 
- * inlinePTX
+ * This sample implements matrix multiplication and is exactly the same as Chapter 6 of the p
  * 
  */ 
 
+readme指出 - It has been written for clarity of exposition to illustrate various CUDA programming principles, not with the goal of providing the most performant generic kernel for matrix multiplication.
 
+1.今晚上又重温了一下矩阵乘优化的问题。三维演示模型见res/*.jpg */
+由此引出了几个问题:
+	1.cache block 的原理
+	2.如何在cuda(或者说GPU)上优化矩阵乘
+	3.比较OpenBLAS，Intel MKL和Eigen的矩阵相乘性能
+	
+	链接 - 
+	C++矩阵处理工具——Eigen http://blog.csdn.net/abcjennifer/article/details/7781936
+	比较OpenBLAS，Intel MKL和Eigen的矩阵相乘性能 http://www.leexiang.com/the-performance-of-matrix-multiplication-among-openblas-intel-mkl-and-eigen
+	Poor performance of OpenBLAS matrix-vector multiplication on small sizes #3239  https://github.com/JuliaLang/julia/issues/3239
+	The GPU on the Matrix-Matrix Multiply file:///home/chunk/Desktop/parco09.pdf
 
-
-
-
-
-
+2.
 
 
 
