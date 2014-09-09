@@ -349,7 +349,7 @@ int matrixMultiply(int argc, char **argv, int block_size, dim3 &dimsA,
  * Program main
  */
 int main(int argc, char **argv) {
-	printf("[Matrix Multiply Using CUDA] - Starting...\n");
+	printf(" [Matrix Multiply Using CUDA] - Starting...\n");
 
 	if (checkCmdLineFlag(argc, (const char **) argv, "help")
 			|| checkCmdLineFlag(argc, (const char **) argv, "?")) {
