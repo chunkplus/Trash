@@ -608,37 +608,99 @@ readme指出 - It has been written for clarity of exposition to illustrate vario
 	Poor performance of OpenBLAS matrix-vector multiplication on small sizes #3239  https://github.com/JuliaLang/julia/issues/3239
 	The GPU on the Matrix-Matrix Multiply file:///home/chunk/Desktop/parco09.pdf
 
-2.
+2.上述三维模型应用于matrixMul,分析见*.jpg
+	注意，这里线程分配是面向最终的结果矩阵C
+	注意 __syncthreads();
 
+//0910
 
+/**
+ * 
+ * matrixMulCUBLAS
+ * 
+ */ 
 
+cuBLAS的使用是本节的主题。关于BLAS的level1和level2的知识前面提到了。
 
+玩玩CUBLAS(1)——hello cublas - http://blog.csdn.net/bendanban/article/details/8891274
+玩玩CUBLAS(2)——level1函数 - http://blog.csdn.net/bendanban/article/details/8893944
+玩玩CUBLAS(3)——level2函数 - http://blog.csdn.net/bendanban/article/details/8897735/
 
+	cublas接受的参数，按照存储地点分，有三种：设备上，主机上，设备或者主机上。按照数学类型分：标量（对应单变量，常量），向量（对应数组），矩阵（对应数组）。
+	cublas中向量，矩阵从1开始索引。这点要注意的是，cublas自己的函数这样实现，我们自己的数据还是按照自己的语言标准来做的，就是说，你用C语言的数组，还是从0开始，但是用cublas库的时候，库本身自己从1开始。
 
+1. #define CUBLAS_ERROR_CHECK(sdata) if(CUBLAS_STATUS_SUCCESS!=sdata){printf("ERROR at:%s:%d\n",__FILE__,__LINE__);exit(-1);}
 
+	#define CUBLAS_ERROR_CHECK(sdata) if(CUBLAS_STATUS_SUCCESS!=sdata)\  
+           {printf("ERROR at:%s:%d\n",__FILE__,__LINE__);exit(-1);} 
+2. vec[i] = (float)(rand()%(up-down+1)+down);
 
+3. cublasSetVector(data_size, sizeof(float), h_datax, 1, d_datax, 1);
 
+4.about nvidia
+	GT GTX T代表Tesla 40nm制程 2011年
+	GK K代表Kepler 28nm制程 2012年之后
+	（？是这样的吗？）
+	详见*.jpg
+	
+	Tesla 2007
+	Fermi 2009
+	Kepler 2011
+	Maxwell 2013
+5.BLAS中level2的函数包含了矩阵与向量的操作。
 
+	#define IDX2C(i,j,ld) (((j)*(ld))+(i))
 
+	C语言是按行存储的，所以，在内存中，A的首行首先被连续存储，然后是首行后的一行再被连续的存储，依次类推，我们称A的这个存储结构为Host_A。
 
+	那么CUBLAS会如何理解HOST_A呢？
 
+	CUBLAS中，矩阵会被按照列存储。
+	（包括下标从1开始，这些特征更靠近matlab）
 
+	我们可以在用的时候在CUBLAS中转置后再用。
 
+6.Blas 基本函数功能
+	http://blog.csdn.net/q673327335/article/details/8547576
+	
+	CAXPY
+	constant times a vector plus a vector. //常数乘以一个向量加上一个向量。
 
+	CCOPY
+	 copies a vector x to a vector y.//复制一个向量x到y的向量。
 
+	CDOTC
+	forms the dot product of two vectors, conjugating the first vector.//结合第一个向量,形成了两个向量的点积
 
+	CDOTU
+	forms the dot product of two vectors.//形成了两个向量的点积。
 
+	CGBMV 
+	 performs one of the matrix-vector operations
 
+	*  CGEMM  performs one of the matrix-matrix operations
+	*
+	*     C := alpha*op( A )*op( B ) + beta*C,
+	*
+	*  where  op( X ) is one of
+	*
+	*     op( X ) = X   or   op( X ) = X**T   or   op( X ) = X**H,
+	*
+	*  alpha and beta are scalars, and A, B and C are matrices, with op( A )
+	*  an m by k matrix,  op( B )  a  k by n matrix and  C an m by n matrix.
 
-
-
-
-
-
-
-
-
-
+	CGEMM
+	performs one of the matrix-matrix operations
+	*
+	* C := alpha*op( A )*op( B ) + beta*C,
+	*
+	* where op( X ) is one of
+	*
+	* op( X ) = X or op( X ) = X**T or op( X ) = X**H,
+	*
+	* alpha and beta are scalars, and A, B and C are matrices, with op( A )
+	* an m by k matrix, op( B ) a k by n matrix and C an m by n matrix.
+	*
 
 
 
