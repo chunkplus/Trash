@@ -702,51 +702,186 @@ cuBLAS的使用是本节的主题。关于BLAS的level1和level2的知识前面�
 	* an m by k matrix, op( B ) a k by n matrix and C an m by n matrix.
 	*
 
+C := alpha * op( A ) * op( B ) + beta * C
+	SUBROUTINE SGEMM(TRANSA, TRANSB, M, N, K,
+	ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+	CHARACTER*1  TRANSA, TRANSB
+	INTEGER  M, N, K, LDA, LDB, LDC
+	REAL  ALPHA, BETA
+	REAL  A(LDA,*),  B(LDB,*),  C(LDC,*)
+
+	SUBROUTINE DGEMM(TRANSA, TRANSB, M, N, K,
+	ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+	CHARACTER*1 TRANSA,TRANSB
+	INTEGER M,N,K,LDA,LDB,LDC
+	DOUBLE PRECISION ALPHA,BETA
+	DOUBLE PRECISION A(LDA,*), B(LDB,*), C(LDC,*)
+	
+	SUBROUTINE CGEMM(TRANSA, TRANSB, M, N, K,
+	ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+	CHARACTER*1 TRANSA,TRANSB
+	INTEGER M,N,K,LDA,LDB,LDC
+	COMPLEX ALPHA,BETA
+	COMPLEX A(LDA,*), B(LDB,*), C(LDC,*)
+	
+	SUBROUTINE ZGEMM(TRANSA, TRANSB, M, N, K,
+	ALPHA, A, LDA, B, LDB, BETA, C, LDC)
+	CHARACTER*1 TRANSA,TRANSB
+	INTEGER M,N,K,LDA,LDB,LDC
+	COMPLEX*16 ALPHA,BETA
+	COMPLEX*16 A(LDA,*), B(LDB,*), C(LDC,*)
+
+
+/**
+ * 
+ * matrixMulDrv
+ * 
+ * This sample implements matrix multiplication and is exactly the same as Chapter 6 of the p
+ * 
+ */
+1.#pragma unroll
+#pragma unroll
+编译器默认情况下将循环展开小的次数，#pragma unroll 能够指定循环以多少次展开（程序员必须保证按这个展开是正确的），例如
+
+#pragma unroll 5
+for()
+
+pragma unroll 后必须紧接着处理的循环。
+
+#pragmatic unroll 1 禁止编译器将循环展开。
+
+如果没指定次数，对于常数次的循环，循环将完全展开，对于不确定次数的循环，循环将不会被展开。
+
+2.执行kernel的第二种方式 
+	cuLaunchKernel(matrixMul, grid.x, grid.y, grid.z, block.x, block.y, block.z, 2*block_size*block_size*sizeof(float), NULL, args, NULL));
+
+其实本例子的主要意图在于ptx和cpp混合编程，可以看做是嵌入汇编。
 
 
 
+	/**
+	 * \brief Load a module's data with options
+	 *
+	 * Takes a pointer \p image and loads the corresponding module \p module into
+	 * the current context. The pointer may be obtained by mapping a \e cubin or
+	 * \e PTX or \e fatbin file, passing a \e cubin or \e PTX or \e fatbin file
+	 * as a NULL-terminated text string, or incorporating a \e cubin or \e fatbin
+	 * object into the executable resources and using operating system calls such
+	 * as Windows \c FindResource() to obtain the pointer. Options are passed as
+	 * an array via \p options and any corresponding parameters are passed in
+	 * \p optionValues. The number of total options is supplied via \p numOptions.
+	 * Any outputs will be returned via \p optionValues. 
+	 *
+	 * \param module       - Returned module
+	 * \param image        - Module data to load
+	 * \param numOptions   - Number of options
+	 * \param options      - Options for JIT
+	 * \param optionValues - Option values for JIT
+	 */
+	CUresult CUDAAPI cuModuleLoadDataEx(CUmodule *module, const void *image, unsigned int numOptions, CUjit_option *options, void **optionValues);
+
+	/**
+	 * \brief Returns a function handle
+	 *
+	 * Returns in \p *hfunc the handle of the function of name \p name located in
+	 * module \p hmod. If no function of that name exists, ::cuModuleGetFunction()
+	 * returns ::CUDA_ERROR_NOT_FOUND.
+	 *
+	 * \param hfunc - Returned function handle
+	 * \param hmod  - Module to retrieve function from
+	 * \param name  - Name of function to retrieve
+	 */
+	CUresult CUDAAPI cuModuleGetFunction(CUfunction *hfunc, CUmodule hmod, const char *name);
 
 
+3.Drv编译
+本例的流程是，首先
+注意前几天将部分库(主要的nvidia库)升级到340.29，不知道有没有影响，不过在编译时提醒“WARNING - libcuda.so not found, CUDA Driver is not installed.  Please re-install the driver. ”，后来发现原因在于libcuda.so的路径没有设置好。makefile中添加搜索路径CUDA_SEARCH_PATH += /usr/lib/x86_64-linux-gnu 即可。或者sudo ln -s /usr/lib/x86_64-linux-gnu/libcuda.so /usr/lib/libcuda.so
+
+看一看makefile中的编译过程：
+[@] nvcc -ccbin g++ -I../../common/inc -m64 -o matrixMulDrv.o -c matrixMulDrv.cpp
+[@] nvcc -ccbin g++ -m64 -o matrixMulDrv matrixMulDrv.o -lcuda
+[@] nvcc -ccbin g++ -I../../common/inc -m64 -o matrixMul_kernel64.ptx -ptx matrixMul_kernel.cu
 
 
+看一看eclipse中的编译过程：
+nvcc -I/usr/local/cuda/include/inc -G -g -O3 -gencode arch=compute_20,code=sm_20 -gencode arch=compute_20,code=sm_21  -odir "src" -M -o "src/matrixMulDrv.d" "../src/matrixMulDrv.cpp"
+nvcc -I/usr/local/cuda/include/inc -G -g -O3 --compile  -x c++ -o  "src/matrixMulDrv.o" "../src/matrixMulDrv.cpp"
+nvcc --cudart static -link -o  "A_someSamples"  ./src/matrixMulDrv.o ./src/matrixMul_kernel.o   -lgomp -lcuda -lcublas	
 
 
+注释
+--ptx   (-ptx)                            
+        Compile all .cu/.gpu input files to device- only .ptx files. This step 
+        discards the host code for each of these input file.
+--compile                                          (-c)                         
+        Compile each .c/.cc/.cpp/.cxx/.cu input file into an object file.
+
+--x     (-x)                              
+        Explicitly specify the language for the input files, rather than 
+        letting the compiler choose a default based on the file name suffix.
+        Allowed values for this option:  'c','c++','cu'.
+        
+--generate-dependencies                            (-M)                         
+        Generate for the one .c/.cc/.cpp/.cxx/.cu input file (more than one 
+        input file is not allowed in this mode) a dependency file that can be 
+        included in a make file.
+        
+--device-debug                                     (-G)                         
+        Generate debug information for device code.
+        
+--machine <bits>                                   (-m)                         
+        Specify 32 vs 64 bit architecture.
+        Allowed values for this option:  32,64.
+        Default value:  64.
+
+--compiler-bindir <path>                           (-ccbin)                     
+		Specify the directory in which the compiler executable (Microsoft 
+		Visual Studio cl, or a gcc derivative) resides. By default, this 
+		executable is expected in the current executable search path. For a 
+		different compiler, or to specify these compilers with a different 
+		executable name, specify the path to the compiler including the 
+		executable name.
+
+//0914
+接下来时一大批的simple*程序，作为cuda各种基础功能的展示。
+
+/**
+ * 
+ * simpleAtomicIntrinsics
+ * 
+ * A simple program demonstrating trivial use of global memory atomic
+ * device functions (atomic*() functions).
+ * 
+ */
+
+cuda 原子操作
+http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#atomic-functions
+
+	Atomic functions operating on 32-bit integer values in shared memory and atomic functions operating on 64-bit integer values in global memory are only available for devices of compute capability 1.2 and higher.
+	Atomic functions operating on 64-bit integer values in shared memory are only available for devices of compute capability 2.x and higher.
+
+[important!!!]
+Note however that any atomic operation can be implemented based on atomicCAS() (Compare And Swap). For example, atomicAdd() for double-precision floating-point numbers can be implemented as follows:
+
+	__device__ double atomicAdd(double* address, double val) {
+		unsigned long long int* address_as_ull = (unsigned long long int*) address;
+		unsigned long long int old = *address_as_ull, assumed;
+		do {
+			assumed = old;
+			old = atomicCAS(address_as_ull, assumed,
+					__double_as_longlong(val + __longlong_as_double(assumed)));
+			// Note: uses integer comparison to avoid hang in case of NaN (since NaN != NaN) } while (assumed != old); return __longlong_as_double(old); }
+		} while (assumed != old);
+		return __longlong_as_double(old);
+	}
 
 
+int atomicCAS(int* address, int compare, int val);
 
+	reads the 32-bit or 64-bit word old located at the address address in global or shared memory, computes (old == compare ? val : old) , and stores the result back to memory at the same address. These three operations are performed in one atomic transaction. The function returns old (Compare And Swap).
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+	（即 tmp = old;old = (old==compare)?val:old;return tmp; 即同则变，异不变）
 
 
 

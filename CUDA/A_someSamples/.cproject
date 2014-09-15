@@ -42,6 +42,7 @@
 								<option id="nvcc.linker.option.shared.1918241483" name="Shared (-shared)" superClass="nvcc.linker.option.shared" value="false" valueType="boolean"/>
 								<option id="nvcc.linker.option.libs.1883849724" name="Libraries (-l)" superClass="nvcc.linker.option.libs" valueType="libs">
 									<listOptionValue builtIn="false" value="gomp"/>
+									<listOptionValue builtIn="false" value="cuda"/>
 									<listOptionValue builtIn="false" value="cublas"/>
 								</option>
 								<inputType id="nvcc.linker.input.1099732490" superClass="nvcc.linker.input">
