@@ -1,0 +1,142 @@
+/*
+ * bankconflictTest.cu
+ *
+ *  Created on: Sep 16, 2014
+ *      Author: chunk
+ */
+/********************************************************************
+ *  shared_memory_test.cu
+ *  This is a example of the CUDA program.
+ *  Author: zhao.kaiyong(at)gmail.com
+ *  http://blog.csdn.net/openhero
+ *  http://www.comp.hkbu.edu.hk/~kyzhao/
+ *********************************************************************/
+
+#include <stdio.h>
+#include <stdlib.h>
+// Includes CUDA
+#include <cuda_runtime.h>
+// Utilities and timing functions
+#include <helper_functions.h>    // includes cuda.h and cuda_runtime_api.h
+// CUDA helper functions
+#include <helper_cuda.h>         // helper functions for CUDA error check
+// 1,2,3,4,5,6,7.....16
+#define BANK_CONFLICT 16
+#define THREAD_SIZE 16
+
+#define CUDA_SAFE_CALL checkCudaErrors
+/************************************************************************/
+/* static                                                               */
+/************************************************************************/
+__global__ void shared_memory_static(float* result, int num, float* table_1) {
+	__shared__ float sh_data[THREAD_SIZE];
+
+	int idx = threadIdx.x;
+	float ret = 0.0f;
+
+	sh_data[idx] = table_1[idx];
+
+	for (int i = 0; i < num; i++) {
+		ret += sh_data[idx % BANK_CONFLICT];
+	}
+
+	result[idx] = ret;
+}
+
+/************************************************************************/
+/* dynamic                                                              */
+/************************************************************************/
+extern __shared__ char array[];
+
+__global__ void shared_memory_dynamic(float* result, int num, float* table_1,
+		int shared_size) {
+	float* sh_data = (float*) array; // 这里就让sh_data指向了shared memory的第一个地址，就可以动态分配空间
+	float* sh_data2 = (float*) &sh_data[shared_size]; // 这里的shared_size的大小为sh_data的大小；
+
+	int idx = threadIdx.x;
+	float ret = 0.0f;
+
+	sh_data[idx] = table_1[idx];
+
+	for (int i = 0; i < num; i++) {
+		ret += sh_data[idx % BANK_CONFLICT];
+	}
+
+	result[idx] = ret;
+}
+
+/************************************************************************/
+/* Bank conflict                                                        */
+/************************************************************************/
+__global__ void shared_memory_bankconflict(float* result, int num,
+		float* table_1) {
+	__shared__ float sh_data[THREAD_SIZE];
+
+	int idx = threadIdx.x;
+	float ret = 0.0f;
+
+	sh_data[idx] = table_1[idx];
+
+	for (int i = 0; i < num; i++) {
+		ret += sh_data[idx % BANK_CONFLICT];
+	}
+
+	result[idx] = ret;
+}
+
+/************************************************************************/
+/* HelloCUDA                                                            */
+/************************************************************************/
+int main(int argc, char* argv[]) {
+	if (cutCheckCmdLineFlag(argc, (const char**) argv, "device")) {
+		cutilDeviceInit(argc, argv);
+	} else {
+		int id = cutGetMaxGflopsDeviceId();
+		cudaSetDevice(id);
+	}
+
+	float *device_result = NULL;
+	float host_result[THREAD_SIZE] = { 0 };
+
+	CUDA_SAFE_CALL(
+			cudaMalloc((void**) &device_result, sizeof(float) * THREAD_SIZE));
+
+	float *device_table_1 = NULL;
+	float host_table1[THREAD_SIZE] = { 0 };
+
+	for (int i = 0; i < THREAD_SIZE; i++) {
+		host_table1[i] = rand() % RAND_MAX;
+	}
+	CUDA_SAFE_CALL(
+			cudaMalloc((void**) &device_table_1, sizeof(float) * THREAD_SIZE));
+	CUDA_SAFE_CALL(
+			cudaMemcpy(device_table_1, host_table1, sizeof(float) * THREAD_SIZE,
+					cudaMemcpyHostToDevice));
+
+	unsigned int timer = 0;
+	CUT_SAFE_CALL(cutCreateTimer(&timer));
+	CUT_SAFE_CALL(cutStartTimer(timer));
+
+	shared_memory_static<<<1, THREAD_SIZE>>>(device_result, 1000,
+			device_table_1);
+	//shared_memory_dynamic<<<1, THREAD_SIZE>>>(device_result, 1000, device_table_1, 16);
+	//shared_memory_bankconflict<<<1, THREAD_SIZE>>>(device_result, 1000, device_table_1);
+	CUT_CHECK_ERROR("Kernel execution failed ");
+
+	CUDA_SAFE_CALL(
+			cudaMemcpy(host_result, device_result, sizeof(float) * THREAD_SIZE,
+					cudaMemcpyDeviceToHost));
+	CUT_SAFE_CALL(cutStopTimer(timer));
+	printf("Processing time: %f (ms) ", cutGetTimerValue(timer));
+	CUT_SAFE_CALL(cutDeleteTimer(timer));
+
+	for (int i = 0; i < THREAD_SIZE; i++) {
+		printf("%f ", host_result[i]);
+	}
+
+	CUDA_SAFE_CALL(cudaFree(device_result));
+	CUDA_SAFE_CALL(cudaFree(device_table_1));
+
+	cutilExit(argc, argv);
+}
+

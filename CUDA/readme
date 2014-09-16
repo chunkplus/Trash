@@ -855,7 +855,7 @@ nvcc --cudart static -link -o  "A_someSamples"  ./src/matrixMulDrv.o ./src/matri
  * 
  */
 
-cuda 原子操作
+1.cuda 原子操作
 http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#atomic-functions
 
 	Atomic functions operating on 32-bit integer values in shared memory and atomic functions operating on 64-bit integer values in global memory are only available for devices of compute capability 1.2 and higher.
@@ -884,63 +884,135 @@ int atomicCAS(int* address, int compare, int val);
 	（即 tmp = old;old = (old==compare)?val:old;return tmp; 即同则变，异不变）
 
 
+http://emuch.net/html/201306/6008188.html
+
+
+2.复习一下信号量
+	
+关于并发和并行-
+并行(parallel)和并发(concurrent)
+	并发和并行是即相似又有区别的两个概念，并行是指两个或者多个事件在同一时刻发生；而并发是指两个或多个事件在同一时间间隔内发生。在多道程序环境下，并发性是指在一段时间内宏观上有多个程序在同时运行，但在单处理机系统中，每一时刻却仅能有一道程序执行，故微观上这些程序只能是分时地交替执行。倘若在计算机系统中有多个处理机，则这些可以并发执行的程序便可被分配到多个处理机上，实现并行执行，即利用每个处理机来处理一个可并发执行的程序，这样，多个程序便可以同时执行。
+
+	信号量(Semaphore)，有时被称为信号灯，是在多线程环境下使用的一种设施，是可以用来保证两个或多个关键代码段不被并发调用。
+
+
+关于线程安全-
+	
+	线程安全是编程中的术语，指某个函数 (计算机科学)、函数库在多线程环境中被调用时，能够正确地处理各个线程的局部变量，使程序功能正确完成。
+
+	一般来说，线程安全的函数应该为每个调用它的线程分配专门的空间，来储存需要单独保存的状态（如果需要的话），不依赖于“线程惯性”，把多个线程共享的变量正确对待（如，通知编译器该变量为“易失（volatile）”型，阻止其进行一些不恰当的优化），而且，线程安全的函数一般不应该修改全局对象。
+
+	很多C库代码（比如某些strtok的实现，它将“多次调用中需要保持不变的状态”储存在静态变量中，导致不恰当的共享）不是线程安全的，在多线程环境中调用这些函数时，要进行特别的预防措施，或者寻找别的替代方案。
+
+关于可重入-
+	
+	若一个程序或子程序可以“安全的被并行执行(Parallel computing)”，则称其为可重入（reentrant或re-entrant）的。即当该子程序正在运行时，可以再次进入并执行它（并行执行时，个别的执行结果，都符合设计时的预期）。可重入概念是在单线程操作系统的时代提出的。一个子程序的重入，可能由于自身原因，如执行了jmp或者call，类似于子程序的递归调用；或者由于硬件中断，UNIX系统的signal的处理，即子程序被中断处理程序或者signal处理程序调用。
+
+可重入与线程安全-
+	可重入与线程安全两个概念都关系到函数处理资源的方式。但是，他们有一定的区别。可重入概念会影响函数的外部接口，而线程安全只关心函数的实现。大多数情况下，要将不可重入函数改为可重入的，需要修改函数接口，使得所有的数据都通过函数的调用者提供。要将非线程安全的函数改为线程安全的，则只需要修改函数的实现部分。一般通过加入同步机制以保护共享的资源，使之不会被几个线程同时访问。
+
+	线程安全与可重入性是两个不同性质的概念。可重入是在单线程操作系统背景下，重入的函数或者子程序，按照后进先出的线性序依次执行完毕。多线程执行的函数或子程序，各个线程的执行时机是由操作系统调度，不可预期的，但是该函数的每个执行线程都会不时的获得CPU的时间片，不断向前推进执行进度。可重入函数未必是线程安全的；线程安全函数未必是可重入的。例如，一个函数打开某个文件并读入数据。这个函数是可重入的，因为它的多个实例同时执行不会造成冲突；但它不是线程安全的，因为在它读入文件时可能有别的线程正在修改该文件，为了线程安全必须对文件加“同步锁”。另一个例子，函数在它的函数体内部访问共享资源使用了加锁、解锁操作，所以它是线程安全的，但是却不可重入。因为若该函数一个实例运行到已经执行加锁但未执行解锁时被停下来，系统又启动该函数的另外一个实例，则新的实例在加锁处将转入等待。如果该函数是一个中断处理服务，在中断处理时又发生新的中断将导致资源死锁。
+
+
+使用c++11中的atomics，可使此函数即线程安全又可重入。
+
+	#include <atomic> 
+	int increment_counter ()
+	{
+		static std::atomic<int> counter(0); 
+		// increment is guaranteed to be done atomically
+		int result = ++counter; 
+		return result;
+	}
+
+3.补充 - CUDA shared memory使用
+	http://www.hpctech.com/2009/0818/207.html
+
+
+4.再说 cutil的消失
+	http://stackoverflow.com/questions/14919613/where-to-find-cudas-cutil-math-h
+	
+	可以在 https://developer.nvidia.com/cuda-toolkit-42-archive 下载SDK
+	
+	The cutil functionality was deleted from the CUDA 5.0 Samples (i.e. the "SDK"). You can still download a previous SDK and compile it under CUDA 5, you should then have everything that came with previous SDK's.
+
+	The official notice was given by nvidia here, in the release notes installation instructions section. As to why, I imagine that the nvidia sentiment regarding cutil probably was something like what is expressed here "not suitable for use in a real application. It is completely unsupported" but people were using it in real applications. So one way to try put a stop to that is to delete it, I suppose. That's just speculation.
+
+
+	make x86_64=1 SMS="20"
+
+/**
+ * 
+ * simpleCallback.cu
+ * 
+ *This sample implements multi-threaded heterogeneous computing workloads with the new CPU callbacks for CUDA *
+ * streams and events introduced with CUDA 5.0.
+ * Together with the thread safety of the CUDA API implementing heterogenous workloads that float between CPU 
+ * threads and GPUs has become simple and efficient.
+ *
+ * The workloads in the sample follow the form CPU preprocess -> GPU process -> CPU postprocess.
+ * Each CPU processing step is handled by its own dedicated thread. GPU workloads are sent to all available GPUs in 
+ * the system.
+ *
+ */
+ 
+ 本例程涉及一个重要的话题 - cpu 多线程和cuda(device)的结合。 http://stackoverflow.com/questions/14474869/call-cuda-kernel-from-a-multithreaded-c-application
+ 
+ 与cudaOpenMP中不同的是，cudaOpenMP是#pragma omp parallel 同构的，而我们要处理更复杂的情形 - 异构。
+ 
+ 
+ 
+ 
+1.关于 typedef
+	http://niehan.blog.techweb.com.cn/archives/325.html
+	不少人用#define的思维来看待typedef，把int与PARA分开来看，int是一部分，PARA是另一部分，但实际上根本就不是这么一回事。int与PARA是一个整体!就象int i:声明一样是一个整体声明，只不过int i定义了一个变量，而typedef定义了一个别名。
+	
+	这些人由于持有这种错误的观念，就会无法理解如下一些声明：typedef int a[10]; typedef void (*p)(void); 他们会以为a[10]是int的别名，(*p)(void)是void的别名，但这样的别名看起来又似乎不是合法的名字，于是陷入困惑之中。实际上，上面的语句把a声明为具有10个int元素的数组的类型别名，p是一种函数指针的类型别名。 虽然在功能上，typedef可以看作一个跟int PARA分离的动作，但语法上typedef属于存储类声明说明符，因此严格来说，typedef int PARA整个是一个完整的声明。 
+
+	（自注；就是用占位符（变量）表示占位符（变量）当前的类型
+	
+	经典的struct为例，
+		typedef struct tagPOINT{
+		　　int x;
+		　　int y;
+		}POINT;
+
+	看似声明一个变量，实则声明一种类型。
+
+2. 关于 void*
+	http://stackoverflow.com/questions/5104640/what-is-void-and-to-what-variables-objects-it-can-point-to
+	
+	void* is such a pointer, that any pointer can be implicitly converted to void*
+	Also note that pointers to const cannot be converted to void* without a const_cast
+
+解释如下：
+
+	In C any pointer can point to any address in memory, as the type information is in the pointer, not in the target. So an int* is just a pointer to some memory location, which is believed to be an integer. A void* pointer, is just a pointer to a memory location where the type is not defined (could be anything).
+
+	Thus any pointer can be cast to void*, but not the other way around, because casting (for example) a void pointer to an int pointer is adding information to it - by performing the cast, you are declaring that the target data is integer, so naturally you have to explicitly say this. The other way around, all you are doing is saying that the int pointer is some kind of pointer, which is fine.
+
+	(If I am not mistaken, in C, unlike C++ the conversion from void* to int* is implicit too...)
 
 
 
+3.cudaStreamAddCallback
+
+extern __host__ cudaError_t CUDARTAPI cudaStreamAddCallback(cudaStream_t stream,
+        cudaStreamCallback_t callback, void *userData, unsigned int flags);
+
+4.关于concurrent kernels
+	http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#asynchronous-concurrent-execution
+	
+	BLOG ： How to Overlap Data Transfers in CUDA C/C++
+	http://devblogs.nvidia.com/parallelforall/how-overlap-data-transfers-cuda-cc/
 
 
+	cudaMemcpy(d_a, a, numBytes, cudaMemcpyHostToDevice);
+	increment<<<1,N>>>(d_a)
+	myCpuFunction(b)
+	cudaMemcpy(a, d_a, numBytes, cudaMemcpyDeviceToHost);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+	注意：上述代码中的第3行，host端并没有被kernel阻塞！(?)
 
 
 
