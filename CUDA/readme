@@ -1114,22 +1114,77 @@ extern __host__ cudaError_t CUDARTAPI cudaStreamAddCallback(cudaStream_t stream,
 	The statistics reported by time are gathered from various system calls. 'User' and 'Sys' come from wait (2) or times (2), depending on the particular system. 'Real' is calculated from a start and end time gathered from the gettimeofday (2) call. （注意：来自gettimeofday）
 
 
+//0918
 
+/**
+ * 
+ * simpleCubemapTexture
+ * 
+ * Simple example that demonstrates how to use a new CUDA 4.1 feature to support cubemap Textures in CUDA C.
+ * 
+ */
+/*
+ * This sample demonstrates how to use texture fetches from layered 2D textures in CUDA C
+ *
+ * This sample first generates a 3D input data array for the layered texture
+ * and the expected output. Then it starts CUDA C kernels, one for each layer,
+ * which fetch their layer's texture data (using normalized texture coordinates)
+ * transform it to the expected output, and write it to a 3D output data array.
+ */
+-1.关于constant memory
+	http://cuda-programming.blogspot.in/2013/01/what-is-constant-memory-in-cuda.html
+	constant memory - NVIDIA hardware provides 64KB of constant memory that it treats differently than it treats standard global memory. In some situations, using constant memory rather than global memory will reduce the required memory bandwidth.
 
+	How does Constant memory speed up your CUDA code performance?
 
+	There is a total of 64 KB constant memory on a device. The constant memory space is cached. As a result, a read from constant memory costs one memory read from device memory only on a cache miss; otherwise, it just costs one read from the constant cache.
+	
+	Advantage along with disadvantage
+	
+	For all threads of a half warp, reading from the constant cache is as fast as reading from a register as long as all threads read the same address. Accesses to different addresses by threads within a half warp are serialized, so cost scales linearly with the number of different addresses read by all threads within a half warp.
 
+	（这是什么意思？这为什么和global mem的效果相反？是因为constant mem（cache）只有一个bank吗？）
+	
+		Step 1: A constant memory request for a warp is first split into two requests, one for each half-warp, that are issued independently.
 
+		Step 2: A request is then split into as many separate requests as there are different memory addresses in the initial request, decreasing throughput by a factor equal to the number of separate requests.
 
+		Final Step: The resulting requests are then serviced at the throughput of the constant cache in case of a cache hit, or at the throughput of device memory otherwise.
 
+	（然后作者给出了这样的建议-）
+		Use Constant memory in the following cases
+			o   When you know, your input data will not change during the execution
+			o   When you know, your all thread will access data from same part of memory
+		As shown in above example; every thread in a block access same address space pointed out by “cangle” array.
+		
+		
+-2.带宽测量
+	http://cuda-programming.blogspot.in/2013/01/how-to-implement-performance-metrics-in.html
+	BW_Theoretical = 1546 * 106 * (384/8) * 2 / 109 = 148 GB/s
+	BW_Effective = (RB + WB) / (t * 109)		
+		
+		
+		
+0.关于CUDA array
+	http://cuda-programming.blogspot.com/2013/02/cuda-array-in-cuda-how-to-use-cuda.html
+	
+	
+	
+1.CUDA 纹理内存
+参考 - 
+	http://www.cnblogs.com/traceorigin/archive/2013/04/11/3015755.html
+	《CUDA范例精解通用GPU编程》 chap7
+	NVIDIA_CUDA_Programming_Guide_1.1_chs  chap4.3.4 纹理类型 
+	CUDA_C_Programming_Guide v6.5  chap3.2.11. Texture and Surface Memory
+	http://cuda-programming.blogspot.in/2013/02/texture-memory-in-cuda-what-is-texture.html
 
+	Specifically, texture caches are designed for graphics applications where memory access patterns exhibit a great deal of spatial locality. In a computing application, this roughly implies that a thread is likely to read from an address “near” the address that nearby threads read, as shown in Figure
 
+	Arithmetically, the four addresses shown are not consecutive, so they would not be cached together in a typical CPU caching scheme. But since GPU texture caches are designed to accelerate access patterns such as this one, you will see an increase in performance in this case when using texture memory instead of global memory.
 
+	(所以，不同种类的特殊memory主要是面向不同的访问模式(MAP,memory access pattern))
 
-
-
-
-
-
+	 The texture cache is optimized for 2D spatial locality, so threads of the same warp that read texture addresses that are close together will achieve best performance.
 
 
 
