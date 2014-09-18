@@ -1014,24 +1014,104 @@ extern __host__ cudaError_t CUDARTAPI cudaStreamAddCallback(cudaStream_t stream,
 
 	注意：上述代码中的第3行，host端并没有被kernel阻塞！(?)
 
+5.call back - cpu
+
+	// New in CUDA 5.0: Add a CPU callback which is called once all currently pending operations in the CUDA stream have finished
+	checkCudaErrors(cudaStreamAddCallback(workload->stream, myStreamCallback, workload, 0));
+
+	原型：
+	extern __host__ cudaError_t CUDARTAPI cudaStreamAddCallback(cudaStream_t stream,
+        cudaStreamCallback_t callback, void *userData, unsigned int flags);
+	
+		cudaStreamAddCallback call, a callback will be executed exactly once.
+	 * The callback will block later work in the stream until it is finished.
+	 *
+	 * The callback may be passed ::cudaSuccess or an error code.  In the event
+	 * of a device error, all subsequently executed callbacks will receive an
+	 * appropriate ::cudaError_t.
+	 *
+	 * Callbacks must not make any CUDA API calls.  Attempting to use CUDA APIs
+	 * will result in ::cudaErrorNotPermitted.  Callbacks must not perform any
+	 * synchronization that may depend on outstanding device work or other callbacks
+	 * that are not mandated to run earlier.  Callbacks without a mandated order
+	 * (in independent streams) execute in undefined order and may be serialized.
+	 
+	例如：
+		void CUDART_CB myStreamCallback(cudaStream_t stream, cudaError_t status, void *data) {
+			checkCudaErrors(status);
+			cutStartThread(postprocess, data);
+		}
+
+	又例：
+		http://stackoverflow.com/questions/17943295/how-to-implement-cudastreamaddcallback
+		You pass a class method to cudaStreamAddCallback, but it should be a non-member function (global or static). If you want to use class method you should implement wrapper function that will call the method
+	
+	由上可知，callback函数的条件比较严格。
+	
+	
+		
+6.(补充) Pthread：POSIX 多线程程序设计
+	http://www.cnblogs.com/mywolrd/archive/2009/02/05/1930707.html
+
+	独立的控制流得以实现是因为线程维持着自己的： 
+		堆栈指针 
+		寄存器 
+		调度属性（如：策略或优先级） 
+		待定的和阻塞的信号集合（Set of pending and blocked signals） 
+		线程专用数据（TSD：Thread Specific Data.） 
+	因此，在UNIX环境下线程： 
+		存在于进程，使用进程资源 
+		拥有自己独立的控制流，只要父进程存在并且操作系统支持 
+		只复制必可以使得独立调度的必要资源 
+		可以和其他线程独立（或非独立的）地共享进程资源 
+		当父进程结束时结束，或者相关类似的 
+		是“轻型的”，因为大部分额外开销已经在进程创建时完成了 
+	
+	“考虑在SMP架构上使用Pthreads的主要动机是获的最优的性能。特别的，如果一个程序使用MPI在节点通信，使用Pthreads可以使得节点数据传输得到显著提高。”
 
 
+	https://computing.llnl.gov/tutorials/parallel_comp/
+
+	互斥量（Mutex）是“mutual exclusion”的缩写。互斥量是实现线程同步，和保护同时写共享数据的主要方法.
 
 
+	unistd.h 是 C 和 C++ 程序设计语言中提供对 POSIX 操作系统 API 的访问功能的头文件的名称。该头文件由 POSIX.1 标准（单一UNIX规范的基础）提出，故所有遵循该标准的操作系统和编译器均应提供该头文件（如 Unix 的所有官方版本，包括 Mac OS X、Linux 等）。
+	对于类 Unix 系统，unistd.h 中所定义的接口通常都是大量针对系统调用的封装（英语：wrapper functions），如 fork、pipe 以及各种 I/O 原语（read、write、close 等等）。
+	类似于 Cygwin 和 MinGW 的 Unix 兼容层也提供相应版本的 unistd.h。
+
+	调用pthread_cond_wait()阻塞等待Thread-B的信号。注意pthread_cond_wait()能够自动地并且原子地解锁相关的互斥量，以至于它可以被Thread-B使用。
+	当收到信号，唤醒线程，互斥量被自动，原子地锁定。(释放锁很容易，要得到的话就得排队)
+
+7.补充：关于命令time
+	
+	The default format string is 
+		\n%U-user %S-system %e-elapsed %P-CPU (%Xtext+%Ddata %Mmax)k\n%Iinputs+%Ooutputs (%Fmajor+%Rminor)pagefaults %Wswaps\n
+		real %es\nuser %Us\nsys %Ss\nCPU %P\n(%Xtext+%Ddata %Mmax)k %Iinputs+%Ooutputs\n(%Fmajor+%Rminor)pagefaults %Wswaps
+	When the -p option is given the (portable) output format 
+		real %e 
+		user %U 
+		sys %S 
+	is used.  	
+	/usr/bin/time -f "\n%E elapsed,\n%U user,\n%S system,\n%M memory\n%x status" 
+
+	%P - Percentage of the CPU that this job got, computed as (%U + %S) / %E.
 
 
+	http://stackoverflow.com/questions/556405/what-do-real-user-and-sys-mean-in-the-output-of-time1
 
+	Real, User and Sys process time statistics
 
+	One of these things is not like the other. Real refers to actual elapsed time; User and Sys refer to CPU time used only by the process.
 
+	Real is wall clock time - time from start to finish of the call. This is all elapsed time including time slices used by other processes and time the process spends blocked (for example if it is waiting for I/O to complete).
 
+	User is the amount of CPU time spent in user-mode code (outside the kernel) within the process. This is only actual CPU time used in executing the process. Other processes and time the process spends blocked do not count towards this figure.
 
+	Sys is the amount of CPU time spent in the kernel within the process. This means executing CPU time spent in system calls within the kernel, as opposed to library code, which is still running in user-space. Like 'user', this is only CPU time used by the process. See below for a brief description of kernel mode (also known as 'supervisor' mode) and the system call mechanism.
 
+	注意：User+Sys will tell you how much actual CPU time your process used. Note that this is across all CPUs, so if the process has multiple threads it could potentially exceed the wall clock time reported by Real. 
 
-
-
-
-
-
+	The statistics reported by time are gathered from various system calls. 'User' and 'Sys' come from wait (2) or times (2), depending on the particular system. 'Real' is calculated from a start and end time gathered from the gettimeofday (2) call. （注意：来自gettimeofday）
 
 
 
