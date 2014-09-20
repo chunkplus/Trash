@@ -1163,6 +1163,9 @@ extern __host__ cudaError_t CUDARTAPI cudaStreamAddCallback(cudaStream_t stream,
 	BW_Theoretical = 1546 * 106 * (384/8) * 2 / 109 = 148 GB/s
 	BW_Effective = (RB + WB) / (t * 109)		
 		
+-3.关于线性存储器 及 pitch 对齐
+	http://blog.sina.com.cn/s/blog_5c6f793801018ekh.html
+
 		
 		
 0.关于CUDA array
@@ -1171,6 +1174,11 @@ extern __host__ cudaError_t CUDARTAPI cudaStreamAddCallback(cudaStream_t stream,
 	
 	
 1.CUDA 纹理内存
+	从函数cudaBindTextureToArray可以看出，texture只是一个cache，需要绑定到内存。cache和内存的区别是不在一个层次上，cache是活的。
+	
+	那么constant呢？？？怎么实现的？
+	
+
 参考 - 
 	http://www.cnblogs.com/traceorigin/archive/2013/04/11/3015755.html
 	《CUDA范例精解通用GPU编程》 chap7
@@ -1187,14 +1195,35 @@ extern __host__ cudaError_t CUDARTAPI cudaStreamAddCallback(cudaStream_t stream,
 	 The texture cache is optimized for 2D spatial locality, so threads of the same warp that read texture addresses that are close together will achieve best performance.
 
 
+2.关于Driver API 和 Runtime API
+	http://bbs.csdn.net/topics/310181849
+	In most cases, these points tend to steer developers strongly toward one API. In cases where they do not, favor the runtime API because it is higher level and easier to use. In addition, because runtime functions all have driver API equivalents, it is easy to migrate runtime code to the driver API should that later become necessary.
 
+	“嗯，貌似这样搞两种API 显得乱得很，毕竟这个东西还不像 WIN32 SDK 和MFC 关系那样容易理解。” （？？？）
 
+	
+	http://cuda-programming.blogspot.com/2013/01/what-is-cuda-driver-api-and-cuda.html
 
+	The CUDA runtime makes it possible to compile and link your CUDA kernels into executable.This means that you don't have to distribute Cubin files with your application, or deal with loading them through the driver API. As you have noted, it is generally easier to use.
 
+//0920
 
+/**
+ * 
+ * simpleIPC
+ * 
+ * This sample demonstrates Inter Process Communication
+ * 
+ */
+ 
+ 《CUDA_C_Programming_Guide》
+ 3.2.8. Interprocess Communication
+	Any device memory pointer or event handle created by a host thread can be directly
+	referenced by any other thread within the same process. It is not valid outside this
+	process however, and therefore cannot be directly referenced by threads belonging to a
+	different process.
 
-
-
+	To share device memory pointers and events across processes, an application must use the Inter Process Communication API
 
 
 
