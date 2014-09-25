@@ -1224,54 +1224,180 @@ extern __host__ cudaError_t CUDARTAPI cudaStreamAddCallback(cudaStream_t stream,
 	different process.
 
 	To share device memory pointers and events across processes, an application must use the Inter Process Communication API
+-1.插一句：关于x86_64 和 amd64
+	http://en.wikipedia.org/wiki/X86-64
+	
+	"AMD64" and "Intel 64" redirect here. For the Intel 64-bit architecture called IA-64, see Itanium.
+
+	x86-64 (also known as x64, x86_64 and AMD64) is the 64-bit version of the x86 instruction set. It supports vastly larger amounts (theoretically, 264 bytes or 16 exbibytes) of virtual memory and physical memory than is possible on its predecessors, allowing programs to store larger amounts of data in memory. x86-64 also provides 64-bit general purpose registers and numerous other enhancements. The original specification was created by AMD, and has been implemented by AMD, Intel, VIA, and others.
+	
+	x86 is a family of backward compatible instruction set architectures[a] based on the Intel 8086 CPU. Many additions and extensions have been added to the x86 instruction set over the years, almost consistently with full backward compatibility.[b] The architecture has been implemented in processors from Intel, Cyrix, AMD, VIA and many other companies; there are also open implementations, such as the Zet SoC platform.
+	
+0.关于进程间通信
+
+	剪贴板就是最简单的进程间通信的例子。又如ctrl-c
+	http://baike.baidu.com/view/1492468.htm?fr=aladdin
+	进程的用户空间是互相独立的，一般而言是不能互相访问的，唯一的例外是共享内存区。但是，系统空间却是“公共场所”，所以内核显然可以提供这样的条件。除此以外，那就是双方都可以访问的外设了。在这个意义上，两个进程当然也可以通过磁盘上的普通文件交换信息，或者通过“注册表”或其它数据库中的某些表项和记录交换信息。广义上这也是进程间通信的手段，但是一般都不把这算作“进程间通信”。
+
+	进程间通信主要包括管道, 系统IPC(Inter-Process Communication，进程间通信)(包括消息队列,信号,共享存储), 套接字(SOCKET).
+
+	在 Linux 中，信号的种类和数目与硬件平台有关。内核用一个字代表所有的信号，每个信号占一位，因此一个字的位数就是系统可以支持的最多信号种类数。i386 平台上有31 种信号。可以使用kill命令（kill –l）列出系统中的信号集。下面是Linux 在Intel系统中的信号。
+	
+	HUP INT QUIT ILL TRAP ABRT BUS FPE KILL USR1
+	SEGV USR2 PIPE ALRM TERM STKFLT CHLD CONT STOP TSTP
+	TTIN TTOU URG XCPU XFSZ VTALRM PROF WINCH POLL PWR SYS
+	
+	SIGBUS和SIGSEGV 
+	http://blog.chinaunix.net/uid-24599332-id-2122898.html
+	
+	
+	 消息缓冲通信技术是由Hansen首先提出的,其基本思想是:根据”生产者-消费者”原理,利用内存中公用消息缓冲区实现进程之间的信息交换.  
+
+	Linux下的进程间通信-详解
+	http://blog.csdn.net/eroswang/article/details/1772350
+
+	共享内存是运行在同一台机器上的进程间通信最快的方式，因为数据不需要在不同的进程间复制。通常由一个进程创建一块共享内存区，其余进程对这块内存区进行 读写。得到共享内存有两种方式：映射/dev/mem设备和内存映像文件。
+	 int shmget(key_t key, int size, int flag); 
+	 void *shmat(int shmid, void *addr, int flag); 
+	使用共享存储来实现进程间通信的注意点是对数据存取的同步，必须确保当一个进程去读取数据时，它所想要的数据已经写好了。通常，信号量被要来实现对共享存 储数据存取的同步，另外，可以通过使用shmctl函数设置共享存储内存的某些标志位如SHM_LOCK、SHM_UNLOCK等来实现。 
+
+
+1.编译制导 #if
+	inline bool IsAppBuiltAs64() {
+#if defined(__x86_64) || defined(AMD64) || defined(_M_AMD64)
+		return 1;
+#else
+		return 0;
+#endif
+	}
+
+2.mmap
+
+	void *mmap (void *__addr, size_t __len, int __prot, int __flags, int __fd, __off_t __offset)
+	mmap将一个文件或者其它对象映射进内存。文件被映射到多个页上，如果文件的大小不是所有页的大小之和，最后一个页不被使用的空间将会清零。mmap在用户空间映射调用系统中作用很大。
+	
+	
+	http://kenby.iteye.com/blog/1164700
+		共享内存可以说是最有用的进程间通信方式，也是最快的IPC形式, 因为进程可以直接读写内存，而不需要任何
+	数据的拷贝。对于像管道和消息队列等通信方式，则需要在内核和用户空间进行四次的数据拷贝，而共享内存则
+	只拷贝两次数据: 一次从输入文件到共享内存区，另一次从共享内存区到输出文件。实际上，进程之间在共享内
+	存时，并不总是读写少量数据后就解除映射，有新的通信时，再重新建立共享内存区域。而是保持共享区域，直
+	到通信完毕为止，这样，数据内容一直保存在共享内存中，并没有写回文件。共享内存中的内容往往是在解除映
+	射时才写回文件的。因此，采用共享内存的通信方式效率是非常高的。
+	
+	mmap的作用是映射文件描述符fd指定文件的 [off,off + len]区域至调用进程的[addr, addr + len]的内存区域。
+	
+	.
+	.
+	.
+	/* 将文件映射至进程的地址空间 */  
+    if ((mapped = (char *)mmap(NULL, sb.st_size, PROT_READ |   
+                    PROT_WRITE, MAP_SHARED, fd, 0)) == (void *)-1) {  
+        perror("mmap");  
+    }  
+    
+	/* 映射完后, 关闭文件也可以操纵内存 */  
+    close(fd);  
+  
+    printf("%s", mapped);  
+  
+    /* 修改一个字符,同步到磁盘文件 */  
+    mapped[20] = '9';  
+    if ((msync((void *)mapped, sb.st_size, MS_SYNC)) == -1) {  
+        perror("msync");  
+    }  
+  
+    /* 释放存储映射区 */  
+    if ((munmap((void *)mapped, sb.st_size)) == -1) {  
+        perror("munmap");  
+    }  
+	.
+	.
+	.
+	
+	私有映射无法修改文件
+	/* 将文件映射至进程的地址空间 */
+	if ((mapped = (char *)mmap(NULL, sb.st_size, PROT_READ | 
+						PROT_WRITE, MAP_PRIVATE, fd, 0)) == (void *)-1) {
+		perror("mmap");
+	}
+
+	通过匿名映射实现父子进程通信:
+
+	/* 匿名映射,创建一块内存供父子进程通信 */  
+    p_map = (char *)mmap(NULL, BUF_SIZE, PROT_READ | PROT_WRITE,  
+            MAP_SHARED | MAP_ANONYMOUS, -1, 0);  
+  
+    if(fork() == 0) {  
+        sleep(1);  
+        printf("child got a message: %s\n", p_map);  
+        sprintf(p_map, "%s", "hi, dad, this is son");  
+        munmap(p_map, BUF_SIZE); //实际上，进程终止时，会自动解除映射。  
+        exit(0);  
+    }  
+    
+3.spawn  vt. vi.（鱼、蛙等）大量产（卵）;引起，酿成	vt.	大量生产
+4.prop.unifiedAddressing /**< Device shares a unified address space with the host */
+
+5.UVA
+	http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#unified-virtual-address-space
+	http://streamcomputing.eu/blog/2013-11-14/cuda-6-unified-memory-explained/
+	CUDA 6 Unified Memory explained
+
+	TRUE or VIRTUAL ?
+
+	AMD, ARM-vendors and Intel have been busy unifying CPU and GPU memories for years. It is not easy to design a model where 2 (or more) processors can access memory without dead-locking each other.
+
+	So if it is not unified memory, what is it?
+
+	It is intelligent synchronisation between CPU and GPU-memory. The real question is what the difference is between Unified Virtual Addressing (UVA, introduced in CUDA 4) and this new thing.
+
+	UVA defines a single Address Space, where CUDA takes care of  the synchronisation when the addresses are physically not on the same memory space. The developer has to give ownership to or the CPU or the GPU, so CUDA knows when to sync memories. It does need CudeDeviceSynchronize() to trigger synchronisation (see image).
+
+	This in turn is intended to make CUDA programming more accessible to wider audiences that may not have been interested in doing their own memory management, or even just freeing up existing CUDA developers from having to do it in the future, speeding up code development.
+
+	“I don’t bike on highways.”
+	“It simply matters a lot if it’s true or virtual, and I really don’t understand why NVIDIA chose to obfuscate these matters.”
+
+	comment: What you have under "official definition" above seems to actually be for "Uniform Memory Access". But CUDA uses the term "Unified Memory". These are different terms, so I don't think it's super misleading on nVidia's part -- I have never seen nVidia actually use the term UMA with this. Though I agree UVM would have been a better term than UM.
+
+6.在UVA之前应该谈谈CUDA6的UM
+
+	（关于统一内存访问，该话题打开了新世界的大门。。。）
+
+	Unified Memory in CUDA 6
+	http://devblogs.nvidia.com/parallelforall/unified-memory-in-cuda-6/
+	
+	With CUDA 6, we’re introducing one of the most dramatic programming model improvements in the history of the CUDA platform, Unified Memory.
+	
+	Unified Memory creates a pool of managed memory that is shared between the CPU and GPU, bridging the CPU-GPU divide. Managed memory is accessible to both the CPU and GPU using a single pointer. The key is that the system automatically migrates data allocated in Unified Memory between host and device so that it looks like CPU memory to code running on the CPU, and like GPU memory to code running on the GPU.
+	
+	If you have programmed CUDA C/C++ before, you will no doubt be struck by the simplicity of the code on the right. Notice that we allocate memory once, and ... ... The CUDA runtime hides all the complexity, automatically migrating data to the place where it is accessed.
+	
+	By migrating data on demand between the CPU and GPU, Unified Memory can offer the performance of local data on the GPU, while providing the ease of use of globally shared data. The complexity of this functionality is kept under the covers of the CUDA driver and runtime, ensuring that application code is simpler to write. The point of migration is to achieve full bandwidth from each processor; the 250 GB/s of GDDR5 memory is vital to feeding the compute throughput of a Kepler GPU.
+	
+	Unified Memory or Unified Virtual Addressing?（UM or UVA）
+	
+		CUDA has supported Unified Virtual Addressing (UVA) since CUDA 4, and while Unified Memory depends on UVA, they are not the same thing. UVA provides a single virtual memory address space for all memory in the system, and enables pointers to be accessed from GPU code no matter where in the system they reside, whether its device memory (on the same or a different GPU), host memory, or on-chip shared memory. It also allows cudaMemcpy to be used without specifying where exactly the input and output parameters reside. UVA enables “Zero-Copy” memory, which is pinned host memory accessible by device code directly, over PCI-Express, without a memcpy. Zero-Copy provides some of the convenience of Unified Memory, but none of the performance, because it is always accessed with PCI-Express’s low bandwidth and high latency.
+
+		UVA does not automatically migrate data from one physical location to another, like Unified Memory does. Because Unified Memory is able to automatically migrate data at the level of individual pages between host and device memory, it required significant engineering to build, since it requires new functionality in the CUDA runtime, the device driver, and even in the OS kernel. 
+	
+	
+7.课外：高级体系结构
+	《ADVANCED COMPUTER ARCHITECTURE AND PARALLEL PROCESSING》
+	http://site.ebrary.com/lib/tsinghua/docDetail.action?docID=10114055&ppg=1
 
 
 
+//0925
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+/**
+ * 
+ * simpleMPI
+ * 
+ * Simple example demonstrating how to use MPI in combination with CUDA.  This executable is not pre-built with the SDK installer.
+ * 
+ */
 
 
 
