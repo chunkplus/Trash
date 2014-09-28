@@ -1416,18 +1416,43 @@ cp simpleMPI ../../bin/x86_64/linux/release
  * 
  */
 
+1.pgm格式和ppm格式
+
+	PGM 是便携式灰度图像格式(portable graymap file format),在黑白超声图像系统中经常使用PGM格式的图像.文件的后缀名为".pgm",PGM格式图像格式分为两类:P2和P5类型.不管是P2还是P5类型的PGM文件,都由两部分组成,文件头部分和数据部分.
+
+	文件头部分
+	文件头包括的信息依次是:
+	1.PGM文件的格式类型(是P2还是P5);
+	2.图像的宽度;
+	3.图像的高度;
+	4.图像灰度值可能的最大值;
+	文件头的这四部分信息都是以ASCII码形式存储的,所以可以直接在将P2或P5格式的PGM文件在记事本中打开看到文件头的信息.
+
+	数据部分
+	数据部分记录图像每个像素的灰度值,按照图像从上到下,从左到右的顺序依次存储每个像素的灰度值.对于像素灰度值的表示P2格式和P5格式有所不同.
+
+	PPM（Portable PixMap）是portable像素图片，是有netpbm项目定义的一系列的portable图片格式中的一个。这些图片格式都相对比较容易处理，跟平台无关，所以称之为portable，简单理解，就是比较直接的图片格式，比如PPM，其实就是把每一个点的RGB分别保存起来。所以，PPM格式的文件是没有压缩的，相对比较大，但是由于图片格式简单，一般作为图片处理的中间文件（不会丢失文件信息），或者作为简单的图片格式保存。
 
 
+//0927
+/**
+ * 
+ * 5_workbench
+ * 
+ * 
+This is a simple test program to measure the memcopy bandwidth of the GPU and memcpy bandwidth across PCI-e.  This test application is capable of measuring device to device copy bandwidth, host to device copy bandwidth for pageable and page-locked memory, and device to host copy bandwidth for pageable and page-locked memory.
+ * 
+ */
+今天我们进入第二层次的samples。首先仿写一个bench程序，从bandwidth开始。
 
 
+1.memory mode
+	pinned memory 
+	http://www.cs.virginia.edu/~mwb7w/cuda_support/pinned_tradeoff.html
+	
+	When allocating CPU memory that will be used to transfer data to the GPU, there are two types of memory to choose from: pinned and non-pinned memory. Pinned memory is memory allocated using the cudaMallocHost function, which prevents the memory from being swapped out and provides improved transfer speeds. Non-pinned memory is memory allocated using the malloc function. 
 
-
-
-
-
-
-
-
+	pinned memory is much more expensive to allocate and deallocate but provides higher transfer throughput for large memory transfers. 
 
 
 
