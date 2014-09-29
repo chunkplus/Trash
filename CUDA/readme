@@ -1455,6 +1455,241 @@ This is a simple test program to measure the memcopy bandwidth of the GPU and me
 	pinned memory is much more expensive to allocate and deallocate but provides higher transfer throughput for large memory transfers. 
 
 
+2.关于cudaHostAlloc的flag
+	之前我们提到过cudaHostAlloc与cudaMallocHost的区别在于前者可以指定flag。
+	#define cudaHostAllocWriteCombined     0x04  /**< Write-combined memory */
+
+	Write combining
+	http://en.wikipedia.org/wiki/Write_combining
+
+	Write combining (WC[1]) is a computer bus technique for allowing data to be combined and temporarily stored in a buffer — the write combine buffer (WCB) — to be released together later in burst mode instead of writing (immediately) as single bits or small chunks.
+
+	Write combining cannot be used for general memory access (data or code regions) due to the weak ordering. Write-combining does not guarantee that the combination of writes and reads is done in the expected order. For example, a Write/Read/Write combination to a specific address would lead to the write combining order of Read/Write/Write which can lead to obtaining wrong values with the first read (which potentially relies on the write before).
+
+	In order to avoid the problem of read/write order described above, the write buffer can be treated as a fully associative cache and added into the memory hierarchy of the device in which it is implemented.[2] Adding complexity slows down the memory hierarchy so this technique is often only used for memory which does not need strong ordering (always correct) like the frame buffers of video cards.
+
+	参考 http://download.intel.com/design/PentiumII/applnots/24442201.pdf
+
+	Write combining is not your friend
+	http://fgiesen.wordpress.com/2013/01/29/write-combining-is-not-your-friend/
+
+
+
+/**
+ * 
+ * 6_cuGL
+ * 
+ */
+今天我们进入第三层次的samples：graphics。接下来一组重要的程序是cuda+openGL。
+
+
+
+/**
+ * 
+ * simpleGL
+ * 
+ * Simple program which demonstrates interoperability between CUDA and OpenGL. The program modifies vertex positions with CUDA and uses OpenGL to render the geometry.
+ * 
+ */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
