@@ -1492,17 +1492,32 @@ This is a simple test program to measure the memcopy bandwidth of the GPU and me
  * 
  */
 
+0.about openGL
+
+	OpenGL is state-based.
+	
+	http://web.cs.wpi.edu/~matt/courses/cs563/talks/OpenGL_Presentation/OpenGL_Presentation.html
+
+	http://www.nvidia.com/content/gtc/documents/1055_gtc09.pdf
+
+	Vertices may be specified in 2D, 3D, or 4D. 2D coordinates are promoted to 3D by assigning a Z value of zero. 4D homogeneous coordinates are reduced to 3D by dividing x, y, and z by the w coordinate (if non-zero).
+
+	Optional vertex attributes are picked up from state if not specified per-vertex. The normal is a 3D vector perpendicular to the surface being described, and is used during lighting calculations. The color may be an RGBA value, or a Color Index, depending on the visual type of the window. Texture coordinates determine the mapping of a texture onto the vertex, and may be specified with 1, 2, 3, or 4 parameters. Edge flags are used to specify if the vertex is on a boundary of a surface. Material properties specify such things as reflectance, ambience, etc, and are used for lighting calculations.
 
 
+	- cudaGLRegisterBufferObject( GLuint bufObj );
+	- cudaGLUnregisterBufferObject( GLuint bufObj );
+		These commands simply inform the OpenGL and CUDA drivers that this buffer will be used by both
 
+	Provides a CUDA pointer to the GL buffer─on 
+	a single GPU no data is moved (Win & Linux)
+	• When mapped to CUDA, OpenGL should not use 
+	this buffer
 
-
-
-
-
-
-
-
+	• CUDA C kernels may now use the mapped memory 
+	just like regular GMEM
+	• CUDA copy functions can use the mapped memory 
+	as a source or destination
 
 
 
