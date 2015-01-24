@@ -458,6 +458,26 @@
 
 6.还有个重要的问题未解决：测试最佳blocksize
 
+/**
+ * 2015-01
+ * 
+补充：calculate mem bandwith
+http://www.enthusiastpc.net/articles/00001/3.aspx
+
+Memory bandwidth. 
+
+Okay now that we have touched on the subjects of memory clockspeed and memory bus width we can get to the most important part: memory bandwidth. Memory bandwidth tells us the speed at which the GPU can access the memory. Remember with GPU processing power how this was a combination of the number of cores and the clockspeed? Well, something similar is the case with the memory. How much memory can be accessed per second is a combination of the bus width and the memory datarate. This is why clockspeed by itself does not tell you anything about the real memory speed available to the GPU. 
+
+Calculating the memory bandwidth is quite simple. Consider the following example for the reference GTX 580 card from NVidia:
+
+Item	Value
+Memory clock	1002MHz
+Memory bus width	384-bit
+
+A memory clock of 1002MHz means a datarate of 4008MHz. Put more simply this means that the memory can do 4008 million transactions per second. Each of these transactions is 384 bits. This means that the bandwidth of the memory is 384 x 4008 = 1,539,072 million bits per second. To get from bits to bytes we divide the number by 8 leading to 1,539,072 / 8 = 192,384 million bytes per second or 192.4 GB/s. This final outcome is the real memory performance figure :-) 
+*/
+
+800*2*64 = 102.4Gbps = 12.8GB/s (Device to Device, or D2D)
 
 	
 事先一定要把结构图画清楚！！
@@ -854,6 +874,30 @@ nvcc --cudart static -link -o  "A_someSamples"  ./src/matrixMulDrv.o ./src/matri
  * device functions (atomic*() functions).
  * 
  */
+ 
+ /**
+  * 
+补充：__device__ __host__ recursion
+https://devtalk.nvidia.com/default/topic/519806/what-is-__host__-__device__/
+https://code.google.com/p/stanford-cs193g-sp2010/wiki/TutorialDeviceFunctions
+http://stackoverflow.com/questions/19013156/how-does-cuda-4-0-support-recursion
+
+Sometimes the same functionality is needed in both the host and the device portions of CUDA code. To avoid code duplication, CUDA allows such functions to carry both __host__ and __device__ attributes, which means the compiler places one copy of that function into the host compilation flow (to be compiled by the host compiler, e.g. gcc or MSVC), and a second copy into the device compilation flow (to be compiled with NVIDIA's CUDA compiler).
+
+Global functions are also called "kernels" - it's the functions that you may call from the host side using CUDA kernel call semantics (<<<...>>>)
+
+Device functions can only be called from other device or global functions. __device__ functions cannot be called from host code.
+* 
+* https://devtalk.nvidia.com/default/topic/452958/combined-__host__-__device__-functions-how-to-tell-if-it-is-device-or-host-executing-/
+* #ifdef  __CUDA_ARCH__
+
+   arr[threadIdx.x] = arr[threadIdx.x + 1];
+
+#else
+* 
+* 
+*/
+
 
 1.cuda 原子操作
 http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#atomic-functions

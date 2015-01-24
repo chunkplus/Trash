@@ -36,9 +36,12 @@ __global__ void timeReduction(int *A, clock_t* timer) {
 			shared[tid] = mmin(shared[tid],shared[tid + d]);
 	}
 	__syncthreads();
+	A[tid] = shared[tid];
+
 	if (tid == 0) {
 //		timer[bid + blockDim.x] = clock();	// HERE : bug eye!
 		timer[bid + gridDim.x] = clock();
+//		printf("\n%d\n", shared[tid]);
 //		printf("\n\t%d\n", timer[bid + blockDim.x]);
 	}
 }
@@ -89,7 +92,7 @@ int main(int argc, char **argv) {
 			cudaMemcpy((void *)h_timer, (const void *)d_timer, sizeof(clock_t) * NUM_BLOCKS * 2, cudaMemcpyDeviceToHost));
 
 	display(h_A, n);
-	display(h_timer, n);
+	display(h_timer, NUM_BLOCKS * 2);
 
 	clock_t tmin = h_timer[0], tmax = h_timer[NUM_BLOCKS];
 	for (int i = 0; i < NUM_BLOCKS; i++) {

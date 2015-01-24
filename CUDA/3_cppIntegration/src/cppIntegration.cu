@@ -45,11 +45,11 @@ extern void computeGold2(int2 *reference, int2 *idata, const unsigned int len);
 //! Simple test kernel for device functionality
 //! @param g_odata  memory to process (in and out)
 ///////////////////////////////////////////////////////////////////////////////
-__global__ void kernel(int *g_data) {
+__global__ void kernel(int *g_data, clock_t* timer) {
 	// write data to global memory
 	const unsigned int tid = threadIdx.x;
 	int data = g_data[tid];
-
+	*timer = clock();
 	// use integer arithmetic to process all four bytes with one thread
 	// this serializes the execution, but is the simplest solutions to avoid
 	// bank conflicts for this very low number of threads
@@ -62,17 +62,18 @@ __global__ void kernel(int *g_data) {
 			| ((((data << 8) >> 24) - 10) << 16)
 			| ((((data << 16) >> 24) - 10) << 8)
 			| ((((data << 24) >> 24) - 10) << 0);
+	*timer = clock() - *timer;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 //! Demonstration that int2 data can be used in the cpp code
 //! @param g_odata  memory to process (in and out)
 ///////////////////////////////////////////////////////////////////////////////
-__global__ void kernel2(int2 *g_data) {
+__global__ void kernel2(int2 *g_data, clock_t* timer) {
 	// write data to global memory
 	const unsigned int tid = threadIdx.x;
 	int2 data = g_data[tid];
-
+	*timer = clock();
 	// use integer arithmetic to process all four bytes with one thread
 	// this serializes the execution, but is the simplest solutions to avoid
 	// bank conflicts for this very low number of threads
@@ -82,6 +83,7 @@ __global__ void kernel2(int2 *g_data) {
 	// and wid is the warp id
 	// see also the programming guide for a more in depth discussion.
 	g_data[tid].x = data.x - data.y;
+	*timer = clock() - *timer;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -113,14 +115,32 @@ bool runTest(const int argc, const char **argv, char *data, int2 *data_int2,
 	checkCudaErrors(
 			cudaMemcpy(d_data_int2, data_int2, mem_size_int2,
 					cudaMemcpyHostToDevice));
+	clock_t* h_timer;
+	clock_t* d_timer;
+	checkCudaErrors(cudaMalloc((void ** ) &d_timer, sizeof(clock_t)));
+	checkCudaErrors(cudaMallocHost((void ** ) &h_timer, sizeof(clock_t)));
+	printf("size of clock_t:%d\n", CLOCKS_PER_SEC);
+	printf("size of clock_t:%d\n", sizeof(clock_t));
 
 	// setup execution parameters
 	dim3 grid(1, 1, 1);
 	dim3 threads(num_threads, 1, 1);
 	dim3 threads2(len, 1, 1); // more threads needed fir separate int2 version
+
+	kernel2<<<grid, threads2>>>(d_data_int2, d_timer);
+	checkCudaErrors(
+			cudaMemcpy(h_timer, d_timer, sizeof(clock_t),
+					cudaMemcpyDeviceToHost));
+	printf("time elapsed: %ld clicks (%f seconds).\n", *h_timer,
+			((double) *h_timer) / CLOCKS_PER_SEC);
+
 	// execute the kernel
-	kernel<<<grid, threads>>>((int *) d_data);
-	kernel2<<<grid, threads2>>>(d_data_int2);
+	kernel<<<grid, threads>>>((int *) d_data, d_timer);
+	checkCudaErrors(
+			cudaMemcpy(h_timer, d_timer, sizeof(clock_t),
+					cudaMemcpyDeviceToHost));
+	printf("time elapsed: %ld clicks (%f seconds).\n", *h_timer,
+			((double) *h_timer) / CLOCKS_PER_SEC);
 
 	// check if kernel execution generated and error
 	getLastCudaError("Kernel execution failed");
@@ -150,6 +170,8 @@ bool runTest(const int argc, const char **argv, char *data, int2 *data_int2,
 	// cleanup memory
 	checkCudaErrors(cudaFree(d_data));
 	checkCudaErrors(cudaFree(d_data_int2));
+	checkCudaErrors(cudaFreeHost(h_timer));
+	checkCudaErrors(cudaFree(d_timer));
 	free(reference);
 	free(reference2);
 
